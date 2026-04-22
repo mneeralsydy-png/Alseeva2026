@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// Auth Service — Admin authentication
+// Auth Service — Admin authentication (in-memory)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { sbGet, sbPatch } from './supabase.js'
 
 const ADMIN_ID = process.env.ADMIN_ACCOUNT_ID ? Number(process.env.ADMIN_ACCOUNT_ID) : 0
 
-// In-memory auth store (resets on restart — acceptable for Telegram bot)
+// In-memory auth store (resets on bot restart)
 const authenticated = new Set<number>()
 const pendingPassword = new Set<number>()
 
@@ -58,6 +58,6 @@ export async function changePassword(newPassword: string): Promise<boolean> {
 
 /** Check if chatId is the allowed admin */
 export function isAdmin(chatId: number): boolean {
-  if (!ADMIN_ID) return true // No restriction if not configured
+  if (!ADMIN_ID) return true
   return chatId === ADMIN_ID
 }

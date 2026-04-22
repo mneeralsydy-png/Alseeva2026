@@ -21,10 +21,6 @@ export function clearState(chatId: number): void {
   conversations.delete(chatId)
 }
 
-export function setState(chatId: number, state: ConversationState): void {
-  conversations.set(chatId, state)
-}
-
 export function startConversation(chatId: number, action: string): ConversationState {
   const state = { action, step: 1, data: {} }
   conversations.set(chatId, state)

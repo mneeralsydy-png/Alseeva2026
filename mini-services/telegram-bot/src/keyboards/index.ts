@@ -4,19 +4,15 @@
 
 import { InlineKeyboard } from 'grammy'
 
-/** Main dashboard keyboard */
+/** Main dashboard keyboard — mirrors admin app tabs */
 export function mainKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
+    .text('🏠 الرئيسية', 'm_dash').row()
     .text('📚 الحلقات', 'm_hal').text('👥 الطلاب', 'm_stu').row()
-    .text('✅ الحضور', 'm_att').text('📊 الإحصائيات', 'm_stat').row()
+    .text('✅ الحضور', 'm_att').text('📈 معدل الحفظ', 'm_rate').row()
+    .text('🎨 الوسائط', 'm_media').text('📋 الأنشطة', 'm_act').row()
     .text('🎓 الخريجين', 'm_grad').text('🏆 المسابقات', 'm_comp').row()
-    .text('🖼️ الوسائط', 'm_media').text('📋 الأنشطة', 'm_act').row()
-    .text('⚙️ الإعدادات', 'm_set')
-}
-
-/** Home button */
-export function homeKeyboard(): InlineKeyboard {
-  return new InlineKeyboard().text('🏠 القائمة الرئيسية', 'home')
+    .text('📊 الإحصائيات', 'm_stat').text('⚙️ الإعدادات', 'm_set')
 }
 
 /** Cancel button */
@@ -28,41 +24,23 @@ export function cancelKeyboard(): InlineKeyboard {
 export function backKeyboard(backData: string): InlineKeyboard {
   return new InlineKeyboard()
     .text('🔙 رجوع', backData).row()
-    .text('🏠 القائمة الرئيسية', 'home')
+    .text('🏠 الرئيسية', 'home')
 }
 
-/** Pagination row */
-export function paginationKeyboard(
-  page: number,
-  totalPages: number,
-  prefix: string,
-  extraData?: string
-): InlineKeyboard {
-  const kb = new InlineKeyboard()
-  if (totalPages > 1) {
-    if (page > 0) {
-      kb.text('⬅️', `${prefix}_${page - 1}${extraData ? '_' + extraData : ''}`)
-    }
-    if (page < totalPages - 1) {
-      kb.text('➡️', `${prefix}_${page + 1}${extraData ? '_' + extraData : ''}`)
-    }
-    kb.row()
-  }
-  return kb
+/** Home only */
+export function homeKeyboard(): InlineKeyboard {
+  return new InlineKeyboard().text('🏠 الرئيسية', 'home')
 }
 
 /** Confirm delete keyboard */
-export function confirmDeleteKeyboard(
-  confirmData: string,
-  backData: string
-): InlineKeyboard {
+export function confirmDeleteKeyboard(confirmData: string, backData: string): InlineKeyboard {
   return new InlineKeyboard()
     .text('⚠️ نعم احذف', confirmData).text('🔙 لا', backData).row()
     .text('🏠', 'home')
 }
 
-/** Branch selection keyboard */
-export function branchKeyboard(backData: string): InlineKeyboard {
+/** Branch selection */
+export function branchKeyboard(): InlineKeyboard {
   const kb = new InlineKeyboard()
   const branches = ['السرور', 'المركز العام', 'الوادي', 'وبرة', 'ضية', 'المنعم']
   for (const br of branches) {
@@ -72,22 +50,32 @@ export function branchKeyboard(backData: string): InlineKeyboard {
   return kb
 }
 
-/** Level selection keyboard */
-export function levelKeyboard(backData: string): InlineKeyboard {
+/** Level selection */
+export function levelKeyboard(): InlineKeyboard {
   const kb = new InlineKeyboard()
   for (const lvl of ['مبتدئ', 'متوسط', 'متقدم']) {
-    kb.text(lvl, `level_${lvl}_${backData}`).row()
+    kb.text(lvl, `newlvl_${lvl}`).row()
   }
-  kb.row().text('🔙 رجوع', backData).text('🏠', 'home')
+  kb.row().text('❌ إلغاء', 'cancel')
   return kb
 }
 
-/** Category selection keyboard */
-export function categoryKeyboard(backData: string): InlineKeyboard {
+/** Category selection */
+export function categoryKeyboard(): InlineKeyboard {
   const kb = new InlineKeyboard()
   for (const cat of ['1-10', '10-20', '20-30', '30-20', 'محو الامية']) {
-    kb.text(cat, `cat_${cat}_${backData}`).row()
+    kb.text(cat, `newcat_${cat}`).row()
   }
-  kb.row().text('🔙 رجوع', backData).text('🏠', 'home')
+  kb.row().text('❌ إلغاء', 'cancel')
+  return kb
+}
+
+/** Activity type selection */
+export function activityTypeKeyboard(): InlineKeyboard {
+  const kb = new InlineKeyboard()
+  for (const t of ['عامة', 'قرآنية', 'ثقافية', 'رياضية', 'اجتماعية']) {
+    kb.text(t, `newacttype_${t}`).row()
+  }
+  kb.row().text('❌ إلغاء', 'cancel')
   return kb
 }

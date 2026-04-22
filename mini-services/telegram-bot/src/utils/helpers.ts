@@ -25,15 +25,16 @@ export function code(text: string): string {
 /** Horizontal line */
 export const LINE = '━━━━━━━━━━━━━━━━━━'
 
-/** Items per page in lists */
+/** Items per page */
 export const PAGE_SIZE = 8
 
-/** Center data constants */
+/** Constants */
 export const BRANCHES = ['السرور', 'المركز العام', 'الوادي', 'وبرة', 'ضية', 'المنعم']
 export const LEVELS = ['مبتدئ', 'متوسط', 'متقدم']
 export const CATEGORIES = ['1-10', '10-20', '20-30', '30-20', 'محو الامية']
+export const ACTIVITY_TYPES = ['عامة', 'قرآنية', 'ثقافية', 'رياضية', 'اجتماعية']
 
-/** Get display emoji for attendance status */
+/** Attendance status emoji */
 export function attEmoji(status: string): string {
   switch (status) {
     case 'حاضر': return '✅'
@@ -43,12 +44,12 @@ export function attEmoji(status: string): string {
   }
 }
 
-/** Get today's date as YYYY-MM-DD */
+/** Today's date as YYYY-MM-DD */
 export function today(): string {
   return new Date().toISOString().split('T')[0]
 }
 
-/** Get first day of current month */
+/** First day of current month YYYY-MM-DD */
 export function monthStart(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
@@ -63,4 +64,10 @@ export function chatId(ctx: any): number {
 export function fmtDate(d: string): string {
   if (!d) return '—'
   return esc(d)
+}
+
+/** Truncate text */
+export function truncate(text: string, max: number): string {
+  if (!text) return ''
+  return text.length > max ? text.slice(0, max) + '...' : text
 }

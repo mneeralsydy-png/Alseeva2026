@@ -1,13 +1,14 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// 🤖 Alseeva2026 — Telegram Bot v5.0
-// Professional Admin Dashboard for Center Management
+// 🤖 Alseeva2026 — Telegram Bot v6.0
+// Professional Admin Dashboard — Full Mirror of Admin Web App
 // ═══════════════════════════════════════════════════════════════════════════════
 //
-// Environment Variables (from GitHub Secrets):
-//   BOT_TOKEN              — Telegram bot token
-//   ADMIN_ACCOUNT_ID       — Allowed admin Telegram chat ID
-//   NEXT_PUBLIC_SUPABASE_URL          — Supabase project URL
-//   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY — Supabase anon key
+// Environment Variables (.env):
+//   BOT_TOKEN        — Telegram bot token
+//   SUPABASE_URL     — Supabase project URL
+//   SUPABASE_KEY     — Supabase anon/public key
+//   CHANNEL_ID       — Telegram channel ID for media
+//   ADMIN_ACCOUNT_ID — Allowed admin Telegram chat ID
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { Bot, InlineKeyboard } from 'grammy'
@@ -16,7 +17,7 @@ import { Bot, InlineKeyboard } from 'grammy'
 import { sbGet, sbPost, sbPatch, sbDelete } from './services/supabase.js'
 import {
   isAuthenticated, isPendingPassword, setAuthenticated,
-  setPendingPassword, verifyPassword, changePassword,
+  setPendingPassword, verifyPassword, changePassword, logout,
 } from './services/auth.js'
 import { getState, clearState, startConversation } from './services/conversation.js'
 
@@ -25,33 +26,38 @@ import { authMiddleware } from './middlewares/auth.js'
 
 // ─── Keyboards ────────────────────────────────────────────────────────────────
 import {
-  mainKeyboard, homeKeyboard, cancelKeyboard, backKeyboard,
-  branchKeyboard,
+  mainKeyboard, cancelKeyboard, backKeyboard, branchKeyboard,
+  levelKeyboard, categoryKeyboard, activityTypeKeyboard,
 } from './keyboards/index.js'
 
 // ─── Views ────────────────────────────────────────────────────────────────────
+import { viewDashboard } from './views/dashboard.js'
 import { viewHalList, viewHalStudents, viewHalEdit, confirmDeleteHal, doDeleteHal } from './views/halakat.js'
 import { viewAllStudents, viewStudentEdit, quickAttendance, viewMoveStudent, confirmDeleteStudent, doDeleteStudent } from './views/students.js'
 import { viewAttPicker, viewAttHalaka, markAttendance } from './views/attendance.js'
+import { viewMonthlyRate } from './views/monthly-rate.js'
 import { viewStats } from './views/stats.js'
 import {
   viewGraduates, startAddGraduate,
   viewCompetitions, startAddCompetition,
-  viewMediaAlbums, viewMediaList,
-  viewActivities,
+  viewMediaAlbums, viewMediaList, startMediaUpload, handlePhotoUpload,
+  viewActivities, startAddActivity,
   viewSettings, viewCenterInfo, startChangePassword,
 } from './views/sections.js'
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
 import { ed } from './utils/messenger.js'
-import { bold, esc, LINE, chatId, PAGE_SIZE, BRANCHES } from './utils/helpers.js'
+import { bold, esc, LINE, chatId, PAGE_SIZE, BRANCHES, LEVELS, CATEGORIES } from './utils/helpers.js'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BOT INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const BOT_TOKEN = process.env.BOT_TOKEN!
-if (!BOT_TOKEN) throw new Error('BOT_TOKEN env var is required')
+if (!BOT_TOKEN) {
+  console.error('❌ BOT_TOKEN env var is required')
+  process.exit(1)
+}
 
 const bot = new Bot(BOT_TOKEN)
 bot.use(authMiddleware)
@@ -65,16 +71,14 @@ bot.command('start', async (ctx) => {
   clearState(c)
 
   if (isAuthenticated(c)) {
-    await ctx.reply(
-      `👋 مرحباً بعودتك\n\n${bold('لوحة التحكم — Alseeva2026')}\n${LINE}\n\nاختر القسم ⬇️`,
-      { parse_mode: 'MarkdownV2', reply_markup: mainKeyboard() }
-    )
+    await viewDashboard(ctx, c)
     return
   }
 
   setPendingPassword(c)
   await ctx.reply(
-    `🤖 ${bold('مرحباً بك في Alseeva2026')}\n${LINE}\n\n🔒 أرسل ${bold('كلمة المرور')} للمتابعة:`,
+    `🤖 ${bold('مرحباً بك في مركز الشفاء — Alseeva2026')}\n${LINE}\n\n` +
+    `🔒 أرسل ${bold('كلمة المرور')} للمتابعة:`,
     { parse_mode: 'MarkdownV2' }
   )
 })
@@ -88,10 +92,13 @@ bot.command('login', async (ctx) => {
 
 bot.command('help', async (ctx) => {
   await ctx.reply(
-    `${bold('المساعدة')}\n${LINE}\n\n` +
+    `${bold('المساعدة — Alseeva2026 Bot')}\n${LINE}\n\n` +
     `🏠 /start — القائمة الرئيسية\n` +
-    `🔐 /login — تسجيل الدخول\n\n` +
-    `استخدم الأزرار للتنقل\nكل قائمة فرعية بها زر رجوع 🔙`,
+    `🔐 /login — تسجيل الدخول\n` +
+    `❓ /help — المساعدة\n\n` +
+    `📌 استخدم الأزرار للتنقل بين الأقسام\n` +
+    `🔙 كل قائمة فرعية بها زر رجوع\n` +
+    `🏠 زر الرئيسية في كل صفحة`,
     { parse_mode: 'MarkdownV2' }
   )
 })
@@ -109,12 +116,12 @@ bot.on('message:text', async (ctx) => {
     const valid = await verifyPassword(txt)
     if (valid) {
       setAuthenticated(c)
-      await ctx.reply(
-        `✅ ${bold('تم تسجيل الدخول!')} 🎉\n${LINE}\n\nاختر القسم ⬇️`,
-        { parse_mode: 'MarkdownV2', reply_markup: mainKeyboard() }
+      await ed(ctx,
+        `✅ ${bold('تم تسجيل الدخول بنجاح!')} 🎉\n${LINE}\n\nمرحباً بك في لوحة التحكم`,
+        mainKeyboard()
       )
     } else {
-      await ctx.reply('❌ كلمة المرور غير صحيحة', { parse_mode: 'MarkdownV2' })
+      await ctx.reply('❌ كلمة المرور غير صحيحة\n\nحاول مرة أخرى:', { parse_mode: 'MarkdownV2' })
     }
     return
   }
@@ -123,17 +130,17 @@ bot.on('message:text', async (ctx) => {
 
   // ── No active conversation ──
   if (!state.action) {
-    await ctx.reply('👆 اختر من القائمة', { reply_markup: mainKeyboard() })
+    await ed(ctx, '👆 اختر من القائمة الرئيسية', mainKeyboard())
     return
   }
 
-  // ── Add Halaka conversation ──
+  // ── Add Halaka ──
   if (state.action === 'add_hal') {
     await handleAddHalaka(ctx, c, txt, state)
     return
   }
 
-  // ── Add Student conversation ──
+  // ── Add Student ──
   if (state.action === 'add_stu') {
     await handleAddStudent(ctx, c, txt, state)
     return
@@ -160,9 +167,9 @@ bot.on('message:text', async (ctx) => {
     const ok = await changePassword(txt)
     clearState(c)
     if (ok) {
-      await ed(ctx, `✅ ${bold('تم تغيير كلمة المرور!')}`, backKeyboard('m_set'))
+      await ed(ctx, `✅ ${bold('تم تغيير كلمة المرور بنجاح!')}`, backKeyboard('m_set'))
     } else {
-      await ed(ctx, '❌ حدث خطأ', backKeyboard('m_set'))
+      await ed(ctx, '❌ حدث خطأ أثناء تغيير كلمة المرور', backKeyboard('m_set'))
     }
     return
   }
@@ -179,43 +186,82 @@ bot.on('message:text', async (ctx) => {
     return
   }
 
-  await ctx.reply('👆 اختر من القائمة', { reply_markup: mainKeyboard() })
+  // ── Add Activity ──
+  if (state.action === 'add_act') {
+    await handleAddActivity(ctx, c, txt, state)
+    return
+  }
+
+  // ── Media: album name input ──
+  if (state.action === 'wait_album') {
+    state.data.album = txt || 'عامة'
+    state.action = 'wait_photo'
+    state.step = 2
+    await ed(ctx,
+      `📤 ${bold('رفع صورة')}\n${LINE}\n\n📁 الألبوم: ${bold(state.data.album)}\n\nأرسل الصورة الآن:`,
+      cancelKeyboard()
+    )
+    return
+  }
+
+  await ed(ctx, '👆 اختر من القائمة', mainKeyboard())
 })
 
-// ── Conversation: Add Halaka ──────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONVERSATION HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Add Halaka (4 steps) ─────────────────────────────────────────────────────
 async function handleAddHalaka(ctx: any, c: number, txt: string, state: any) {
   if (state.step === 1) {
     if (!txt) { await ctx.reply('❌ الاسم مطلوب', { reply_markup: cancelKeyboard() }); return }
     state.data.name = txt
     state.step = 2
-    await ed(ctx, `📝 ${bold('الخطوة 2/4')} — 👨‍🏫 المعلم:`, cancelKeyboard())
+    await ed(ctx, `📝 ${bold('الخطوة 2/5')} — 👨‍🏫 اسم المعلم:`, cancelKeyboard())
   } else if (state.step === 2) {
     state.data.teacher = txt
     state.step = 3
-    await ed(ctx, `📝 ${bold('الخطوة 3/4')} — 🌳 الفرع:`, branchKeyboard('cancel'))
+    await ed(ctx, `📝 ${bold('الخطوة 3/5')} — 🌳 الفرع:`, branchKeyboard())
   } else if (state.step === 4) {
+    // Time step (after branch callback)
+    state.data.time = txt
+    state.step = 5
+    await ed(ctx, `📝 ${bold('الخطوة 5/6')} — 📍 المكان:`, cancelKeyboard())
+  } else if (state.step === 5) {
+    // Location step
+    state.data.location = txt
+    await ed(ctx, `📝 ${bold('الخطوة 6/6')} — 📝 وصف الحلقة (اختياري):`, cancelKeyboard())
+    state.step = 6
+  } else if (state.step === 6) {
+    // Description step - final
     await sbPost('Halaka', {
       name: state.data.name,
       teacher: state.data.teacher,
       branch: state.data.branch,
+      time: state.data.time || '',
+      location: state.data.location || '',
       description: txt,
     })
     clearState(c)
     await ed(ctx,
-      `✅ ${bold('تم إضافة الحلقة!')} 🎉\n\n` +
-      `🏫 ${esc(state.data.name)}\n👨‍🏫 ${esc(state.data.teacher)}\n🌳 ${esc(state.data.branch)}`,
+      `✅ ${bold('تم إضافة الحلقة بنجاح!')} 🎉\n\n` +
+      `🏫 ${esc(state.data.name)}\n` +
+      `👨‍🏫 ${esc(state.data.teacher)}\n` +
+      `🌳 ${esc(state.data.branch)}\n` +
+      `🕐 ${esc(state.data.time || '—')}\n` +
+      `📍 ${esc(state.data.location || '—')}`,
       mainKeyboard()
     )
   }
 }
 
-// ── Conversation: Add Student ─────────────────────────────────────────────────
+// ── Add Student (multi-step with callbacks for branch/level/category) ─────────
 async function handleAddStudent(ctx: any, c: number, txt: string, state: any) {
   if (state.step === 1) {
     if (!txt) { await ctx.reply('❌ الاسم مطلوب', { reply_markup: cancelKeyboard() }); return }
     state.data.name = txt
     state.step = 2
-    await ed(ctx, `📝 ${bold('الخطوة 2/6')} — 🎂 العمر:`, cancelKeyboard())
+    await ed(ctx, `📝 ${bold('الخطوة 2/8')} — 🎂 العمر (رقم):`, cancelKeyboard())
   } else if (state.step === 2) {
     const age = parseInt(txt)
     if (isNaN(age) || age < 3 || age > 100) {
@@ -224,18 +270,32 @@ async function handleAddStudent(ctx: any, c: number, txt: string, state: any) {
     }
     state.data.age = age
     state.step = 3
-    await ed(ctx, `📝 ${bold('الخطوة 3/6')} — 📖 السورة:`, cancelKeyboard())
+    await ed(ctx, `📝 ${bold('الخطوة 3/8')} — 📖 السورة الحالية:`, cancelKeyboard())
   } else if (state.step === 3) {
     state.data.surah = txt
     state.step = 4
-    // Show category keyboard
+    // Show category keyboard via callback
     const kb = new InlineKeyboard()
-    for (const cat of ['1-10', '10-20', '20-30', '30-20', 'محو الامية']) {
-      kb.text(cat, `nsc_${cat}`).row()
-    }
+    for (const cat of CATEGORIES) kb.text(cat, `newcat_${cat}`).row()
     kb.row().text('❌ إلغاء', 'cancel')
-    await ed(ctx, `📝 ${bold('الخطوة 4/6')} — 📂 الفئة:`, kb)
-  } else if (state.step === 7) {
+    await ed(ctx, `📝 ${bold('الخطوة 4/8')} — 📂 الفئة:`, kb)
+  } else if (state.step === 6) {
+    // Parent name
+    state.data.parentName = txt || ''
+    state.step = 7
+    // Show halaka selection keyboard
+    const halakat = await sbGet('Halaka', 'order=createdAt.asc')
+    if (!halakat.length) {
+      await ed(ctx, '❌ لا توجد حلقات! أنشئ حلقة أولاً.', cancelKeyboard())
+      clearState(c)
+      return
+    }
+    const kb = new InlineKeyboard()
+    for (const h of halakat.slice(0, 15)) kb.text(`📚 ${esc(h.name)}`, `newhal_${h.id}`).row()
+    kb.row().text('❌ إلغاء', 'cancel')
+    await ed(ctx, `📝 ${bold('الخطوة 7/8')} — 🏫 اختر الحلقة:`, kb)
+  } else if (state.step === 8) {
+    // Final step: parent phone
     state.data.phone = txt || ''
     await sbPost('Student', {
       name: state.data.name,
@@ -244,23 +304,39 @@ async function handleAddStudent(ctx: any, c: number, txt: string, state: any) {
       category: state.data.cat,
       level: state.data.lvl,
       halakaId: state.data.hid,
+      parentName: state.data.parentName || '',
       parentPhone: txt || '',
     })
     clearState(c)
-    await ed(ctx, `✅ ${bold('تم إضافة الطالب!')} 🎉\n\n👤 ${esc(state.data.name)}`, mainKeyboard())
+    await ed(ctx,
+      `✅ ${bold('تم إضافة الطالب بنجاح!')} 🎉\n\n` +
+      `👤 ${esc(state.data.name)}\n` +
+      `🎂 ${esc(String(state.data.age))}  📖 ${esc(state.data.surah)}\n` +
+      `📊 ${esc(state.data.lvl)}  📂 ${esc(state.data.cat)}`,
+      mainKeyboard()
+    )
   }
 }
 
-// ── Conversation: Edit Field ──────────────────────────────────────────────────
+// ── Edit Field ───────────────────────────────────────────────────────────────
 async function handleEditField(ctx: any, c: number, txt: string, state: any) {
   if (!txt) { await ctx.reply('❌ مطلوب', { reply_markup: cancelKeyboard() }); return }
-  await sbPatch(state.data.table, `id=eq.${state.data.id}`, { [state.data.field]: txt })
-  const kb = backKeyboard(state.data.backCb)
+
+  // Handle age as number
+  let value: any = txt
+  if (state.data.field === 'age') {
+    const n = parseInt(txt)
+    if (isNaN(n)) { await ctx.reply('❌ أرسل رقماً', { reply_markup: cancelKeyboard() }); return }
+    value = n
+  }
+
+  await sbPatch(state.data.table, `id=eq.${state.data.id}`, { [state.data.field]: value })
+  const backCb = state.data.backCb || 'home'
   clearState(c)
-  await ed(ctx, `✅ تم التعديل: ${bold(txt)}`, kb)
+  await ed(ctx, `✅ ${bold('تم التعديل بنجاح!')}\n\nالقيمة الجديدة: ${esc(txt)}`, backKeyboard(backCb))
 }
 
-// ── Conversation: Search ─────────────────────────────────────────────────────
+// ── Search ───────────────────────────────────────────────────────────────────
 async function handleSearch(ctx: any, c: number, txt: string, state: any) {
   const students = await sbGet('Student', `name=ilike.%${txt}%&limit=10`)
   const halakat = await sbGet('Halaka')
@@ -269,52 +345,67 @@ async function handleSearch(ctx: any, c: number, txt: string, state: any) {
   clearState(c)
 
   if (!students.length) {
-    await ed(ctx, `🔍 لا نتائج لـ: ${esc(txt)}`, mainKeyboard())
+    await ed(ctx, `🔍 ${bold('لا نتائج')}\n\nلم يتم العثور على طالب باسم: ${esc(txt)}`, mainKeyboard())
     return
   }
 
   let msg = `🔍 ${bold('نتائج البحث')} (${students.length})\n${LINE}\n\n`
   const kb = new InlineKeyboard()
   for (const s of students) {
-    msg += `👤 ${bold(s.name)}  📚 ${esc(hMap.get(s.halakaId) || '—')}\n\n`
-    kb.text('✏️', `se_${s.id}`).text('✅ حضور', `sa_${s.id}`).row()
+    const halName = hMap.get(s.halakaId) || '—'
+    msg += `👤 ${bold(s.name)}  📚 ${esc(halName)}  📖 ${esc(s.surah || '—')}\n\n`
+    kb.text('✏️ تعديل', `se_${s.id}`).text('✅ حضور', `sa_${s.id}`).row()
   }
   kb.row().text('🏠', 'home')
   await ed(ctx, msg, kb)
 }
 
-// ── Conversation: Add Graduate ────────────────────────────────────────────────
+// ── Add Graduate (3 steps) ───────────────────────────────────────────────────
 async function handleAddGraduate(ctx: any, c: number, txt: string, state: any) {
   if (state.step === 1) {
-    if (!txt) { await ctx.reply('❌ مطلوب', { reply_markup: cancelKeyboard() }); return }
+    if (!txt) { await ctx.reply('❌ العنوان مطلوب', { reply_markup: cancelKeyboard() }); return }
     state.data.title = txt
     state.step = 2
     await ed(ctx, `📝 ${bold('الخطوة 2/3')} — 📅 التاريخ (YYYY-MM-DD):`, cancelKeyboard())
   } else if (state.step === 2) {
     state.data.date = txt
     state.step = 3
-    await ed(ctx, `📝 ${bold('الخطوة 3/3')} — 📝 ملاحظات (اختياري):`, cancelKeyboard())
+    await ed(ctx, `📝 ${bold('الخطوة 3/3')} — 👥 عدد الخريجين:`, cancelKeyboard())
   } else if (state.step === 3) {
+    const count = parseInt(txt) || 0
     const grads = await sbGet('CenterInfo', 'type=eq.graduate_batch')
     const bn = grads.length + 1
     await sbPost('CenterInfo', {
       key: `دفعة_${bn}_${state.data.title}`,
-      value: JSON.stringify({ batchNumber: bn, title: state.data.title, date: state.data.date, graduateCount: 0, graduates: [], notes: txt || '' }),
+      value: JSON.stringify({
+        batchNumber: bn,
+        title: state.data.title,
+        date: state.data.date,
+        graduateCount: count,
+        graduates: [],
+        notes: '',
+      }),
       type: 'graduate_batch',
       section: 'خريجين',
     })
     clearState(c)
-    await ed(ctx, `✅ ${bold('تم إضافة الدفعة!')} 🎉\n\n🎓 ${esc(state.data.title)}\n📅 ${esc(state.data.date)}`, backKeyboard('m_grad'))
+    await ed(ctx,
+      `✅ ${bold('تم إضافة الدفعة بنجاح!')} 🎉\n\n` +
+      `🎓 ${esc(state.data.title)}\n` +
+      `📅 ${esc(state.data.date)}\n` +
+      `👥 ${bold(String(count))} خريج`,
+      backKeyboard('m_grad')
+    )
   }
 }
 
-// ── Conversation: Add Competition ─────────────────────────────────────────────
+// ── Add Competition (4 steps) ────────────────────────────────────────────────
 async function handleAddCompetition(ctx: any, c: number, txt: string, state: any) {
   if (state.step === 2) {
-    if (!txt) { await ctx.reply('❌ مطلوب', { reply_markup: cancelKeyboard() }); return }
+    if (!txt) { await ctx.reply('❌ العنوان مطلوب', { reply_markup: cancelKeyboard() }); return }
     state.data.title = txt
     state.step = 3
-    await ed(ctx, `📝 ${bold('الخطوة 3/4')} — 📅 التاريخ:`, cancelKeyboard())
+    await ed(ctx, `📝 ${bold('الخطوة 3/4')} — 📅 التاريخ (YYYY-MM-DD):`, cancelKeyboard())
   } else if (state.step === 3) {
     state.data.date = txt
     state.step = 4
@@ -329,7 +420,47 @@ async function handleAddCompetition(ctx: any, c: number, txt: string, state: any
       section,
     })
     clearState(c)
-    await ed(ctx, `✅ ${bold('تم إضافة المسابقة!')} 🎉\n\n🏆 ${esc(state.data.title)}\n📍 ${esc(state.data.type)}\n📅 ${esc(state.data.date)}`, backKeyboard('m_comp'))
+    await ed(ctx,
+      `✅ ${bold('تم إضافة المسابقة بنجاح!')} 🎉\n\n` +
+      `🏆 ${esc(state.data.title)}\n` +
+      `📍 ${esc(state.data.type)}\n` +
+      `📅 ${esc(state.data.date)}\n` +
+      `👥 ${bold(String(participants.length))} مشارك`,
+      backKeyboard('m_comp')
+    )
+  }
+}
+
+// ── Add Activity (4 steps) ──────────────────────────────────────────────────
+async function handleAddActivity(ctx: any, c: number, txt: string, state: any) {
+  if (state.step === 1) {
+    if (!txt) { await ctx.reply('❌ العنوان مطلوب', { reply_markup: cancelKeyboard() }); return }
+    state.data.title = txt
+    state.step = 2
+    await ed(ctx, `📝 ${bold('الخطوة 2/4')} — 📅 التاريخ (YYYY-MM-DD):`, cancelKeyboard())
+  } else if (state.step === 2) {
+    state.data.date = txt
+    state.step = 3
+    // Show type keyboard
+    const kb = new InlineKeyboard()
+    for (const t of ['عامة', 'قرآنية', 'ثقافية', 'رياضية', 'اجتماعية']) kb.text(t, `newacttype_${t}`).row()
+    kb.row().text('❌ إلغاء', 'cancel')
+    await ed(ctx, `📝 ${bold('الخطوة 3/4')} — 🏷️ نوع النشاط:`, kb)
+  } else if (state.step === 4) {
+    await sbPost('Activity', {
+      title: state.data.title,
+      date: state.data.date,
+      type: state.data.actType || 'عامة',
+      description: txt,
+    })
+    clearState(c)
+    await ed(ctx,
+      `✅ ${bold('تم إضافة النشاط بنجاح!')} 🎉\n\n` +
+      `📌 ${esc(state.data.title)}\n` +
+      `📅 ${esc(state.data.date)}\n` +
+      `🏷️ ${esc(state.data.actType || 'عامة')}`,
+      backKeyboard('m_act')
+    )
   }
 }
 
@@ -341,20 +472,12 @@ bot.on('message:photo', async (ctx) => {
   const c = ctx.chat!.id
   const state = getState(c)
 
-  if (state.action !== 'wait_photo') return
+  if (state.action === 'wait_photo') {
+    await handlePhotoUpload(ctx, c, bot)
+    return
+  }
 
-  const photo = ctx.message.photo[ctx.message.photo.length - 1]
-  const fileId = photo.file_id
-  const album = state.data.album || 'عامة'
-  const filename = `tg-${Date.now()}-${fileId.slice(0, 10)}.jpg`
-
-  await sbPost('MediaImage', { album, filename, url: `tg:${fileId}` })
-  clearState(c)
-
-  await ctx.reply(
-    `✅ ${bold('تم حفظ الصورة!')}\n\n📁 الألبوم: ${esc(album)}`,
-    { parse_mode: 'MarkdownV2', reply_markup: mainKeyboard() }
-  )
+  // Ignore photos in other states
 })
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -368,15 +491,17 @@ bot.on('callback_query:data', async (ctx) => {
   try { await ctx.answerCallbackQuery() } catch {}
 
   try {
-    // ── Global ──
+    // ═══ GLOBAL ═══
     if (d === 'cancel') { clearState(c); await ed(ctx, '❌ تم الإلغاء', mainKeyboard()); return }
-    if (d === 'home') { clearState(c); await ed(ctx, `${bold('القائمة الرئيسية')}\n${LINE}\n\nاختر القسم ⬇️`, mainKeyboard()); return }
-    if (d === 'login') { setPendingPassword(c); await ed(ctx, '🔒 أرسل كلمة المرور:', cancelKeyboard()); return }
+    if (d === 'home') { clearState(c); await viewDashboard(ctx, c); return }
+    if (d === 'login') { setPendingPassword(c); clearState(c); await ed(ctx, '🔒 أرسل كلمة المرور:', cancelKeyboard()); return }
 
-    // ── Main sections ──
+    // ═══ MAIN SECTIONS ═══
+    if (d === 'm_dash') return viewDashboard(ctx, c)
     if (d === 'm_hal') return viewHalList(ctx, c, 0)
     if (d === 'm_stu') return viewAllStudents(ctx, c, 0)
     if (d === 'm_att') return viewAttPicker(ctx, c)
+    if (d === 'm_rate') return viewMonthlyRate(ctx, c)
     if (d === 'm_stat') return viewStats(ctx, c)
     if (d === 'm_grad') return viewGraduates(ctx, c, 0)
     if (d === 'm_comp') return viewCompetitions(ctx, c, 0)
@@ -384,48 +509,77 @@ bot.on('callback_query:data', async (ctx) => {
     if (d === 'm_act') return viewActivities(ctx, c, 0)
     if (d === 'm_set') return viewSettings(ctx, c)
 
-    // ── Actions ──
-    if (d === 'action_add_hal') return startAddHalaka(ctx, c)
-    if (d === 'action_add_stu') return startAddStudent(ctx, c)
+    // ═══ QUICK ACTIONS ═══
+    if (d === 'action_add_hal') {
+      startConversation(c, 'add_hal')
+      await ed(ctx, `📚 ${bold('إضافة حلقة جديدة')}\n${LINE}\n\n📝 الخطوة 1/6 — 🏫 اسم الحلقة:`, cancelKeyboard())
+      return
+    }
+    if (d === 'action_add_stu') {
+      startConversation(c, 'add_stu')
+      await ed(ctx, `👥 ${bold('إضافة طالب جديد')}\n${LINE}\n\n📝 الخطوة 1/8 — 👤 اسم الطالب:`, cancelKeyboard())
+      return
+    }
     if (d === 'action_search') {
       startConversation(c, 'search')
-      await ed(ctx, `🔍 ${bold('بحث عن طالب')}\n${LINE}\n\n👤 أدخل الاسم:`, cancelKeyboard())
+      await ed(ctx, `🔍 ${bold('بحث عن طالب')}\n${LINE}\n\n👤 أدخل اسم الطالب:`, cancelKeyboard())
       return
     }
 
-    // ── Settings ──
+    // ═══ SETTINGS ═══
     if (d === 'set_pwd') return startChangePassword(ctx, c)
     if (d === 'set_info') return viewCenterInfo(ctx, c)
+    if (d === 'set_logout') { logout(c); clearState(c); await ed(ctx, `👋 ${bold('تم تسجيل الخروج')}\n\nأرسل /start لتسجيل الدخول`, new InlineKeyboard().text('🔐 تسجيل الدخول', 'login')); return }
 
-    // ── Halaka callbacks ──
+    // ═══ HALAKA CALLBACKS ═══
     if (d.startsWith('hp_')) return viewHalList(ctx, c, parseInt(d.slice(3)))
     if (d.startsWith('hs_')) return viewHalStudents(ctx, c, d.slice(3), 0)
+    if (d.startsWith('hsp_')) {
+      const parts = d.slice(4).split('_')
+      return viewHalStudents(ctx, c, parts[1], parseInt(parts[0]))
+    }
     if (d.startsWith('he_')) return viewHalEdit(ctx, c, d.slice(3))
     if (d.startsWith('hd_')) return confirmDeleteHal(ctx, c, d.slice(3))
     if (d.startsWith('hdc_')) return doDeleteHal(ctx, c, d.slice(4))
-    if (d.startsWith('ehn_')) return startEditFieldInline(ctx, c, d.slice(4), 'Halaka', 'name', '🏫 الاسم الجديد:', `he_${d.slice(4)}`)
-    if (d.startsWith('eht_')) return startEditFieldInline(ctx, c, d.slice(4), 'Halaka', 'teacher', '👨‍🏫 المعلم الجديد:', `he_${d.slice(4)}`)
+
+    // Halaka edit fields
+    if (d.startsWith('ehn_')) return startEditInline(ctx, c, d.slice(4), 'Halaka', 'name', '🏫 الاسم الجديد:', `he_${d.slice(4)}`)
+    if (d.startsWith('eht_')) return startEditInline(ctx, c, d.slice(4), 'Halaka', 'teacher', '👨‍🏫 المعلم الجديد:', `he_${d.slice(4)}`)
+    if (d.startsWith('ehti_')) return startEditInline(ctx, c, d.slice(4), 'Halaka', 'time', '🕐 الموعد الجديد:', `he_${d.slice(4)}`)
+    if (d.startsWith('ehlo_')) return startEditInline(ctx, c, d.slice(4), 'Halaka', 'location', '📍 المكان الجديد:', `he_${d.slice(4)}`)
+    if (d.startsWith('ehd_')) return startEditInline(ctx, c, d.slice(4), 'Halaka', 'description', '📝 الوصف الجديد:', `he_${d.slice(4)}`)
+
+    // Halaka branch select
     if (d.startsWith('ehb_')) {
       const hid = d.slice(4)
       const kb = new InlineKeyboard()
       for (const br of BRANCHES) kb.text(`🌳 ${br}`, `shb_${hid}_${br}`).row()
       kb.row().text('🔙', `he_${hid}`).text('🏠', 'home')
-      await ed(ctx, `✏️ ${bold('اختر الفرع:')}`, kb)
+      await ed(ctx, `✏️ ${bold('اختر الفرع الجديد:')}`, kb)
       return
     }
     if (d.startsWith('shb_')) {
       const p = d.slice(4); const idx = p.indexOf('_')
       const hid = p.slice(0, idx); const br = p.slice(idx + 1)
       await sbPatch('Halaka', `id=eq.${hid}`, { branch: br })
-      await ed(ctx, `✅ الفرع: ${bold(br)}`, new InlineKeyboard().text('🔙', `he_${hid}`).row().text('🏠', 'home'))
+      await ed(ctx, `✅ ${bold('تم تغيير الفرع بنجاح!')}\n\nالفرع الجديد: ${bold(br)}`, backKeyboard(`he_${hid}`))
       return
     }
-    if (d.startsWith('ehd_')) return startEditFieldInline(ctx, c, d.slice(4), 'Halaka', 'description', '📝 الوصف الجديد:', `he_${d.slice(4)}`)
-    if (d.startsWith('ehti_')) return startEditFieldInline(ctx, c, d.slice(4), 'Halaka', 'time', '🕐 الموعد الجديد:', `he_${d.slice(4)}`)
-    if (d.startsWith('ehlo_')) return startEditFieldInline(ctx, c, d.slice(4), 'Halaka', 'location', '📍 المكان الجديد:', `he_${d.slice(4)}`)
 
-    // ── Student callbacks ──
-    if (d.startsWith('sp_')) { const p = d.slice(3).split('_'); return viewAllStudents(ctx, c, parseInt(p[0])) }
+    // Halaka add - branch step (step 3)
+    if (d.startsWith('branch_') && getState(c).action === 'add_hal' && getState(c).step === 3) {
+      const br = d.slice(7)
+      const state = getState(c)
+      state.data.branch = br
+      state.step = 4
+      await ed(ctx, `📝 ${bold('الخطوة 4/6')} — 🕐 الموعد (مثال: 4:00 عصراً):`, cancelKeyboard())
+      return
+    }
+
+    // Halaka add - time (step 4) and location (step 5) handled via text in handleAddHalaka
+
+    // ═══ STUDENT CALLBACKS ═══
+    if (d.startsWith('sp_')) return viewAllStudents(ctx, c, parseInt(d.slice(3)))
     if (d.startsWith('se_')) return viewStudentEdit(ctx, c, d.slice(3))
     if (d.startsWith('sa_')) return quickAttendance(ctx, c, d.slice(3))
     if (d.startsWith('sd_')) return confirmDeleteStudent(ctx, c, d.slice(3))
@@ -435,67 +589,109 @@ bot.on('callback_query:data', async (ctx) => {
       const p = d.slice(7); const idx = p.indexOf('_')
       const sid = p.slice(0, idx); const hid = p.slice(idx + 1)
       await sbPatch('Student', `id=eq.${sid}`, { halakaId: hid })
-      await ed(ctx, `✅ ${bold('تم نقل الطالب!')}`, backKeyboard(`se_${sid}`))
+      const s = (await sbGet('Student', `id=eq.${sid}`))[0]
+      const h = (await sbGet('Halaka', `id=eq.${hid}`))[0]
+      await ed(ctx, `✅ ${bold('تم نقل الطالب بنجاح!')}\n\n👤 ${esc(s?.name || '')} → 📚 ${esc(h?.name || '')}`, backKeyboard(`se_${sid}`))
       return
     }
-    if (d.startsWith('esn_')) {
-      const sid = d.slice(4); const s = (await sbGet('Student', `id=eq.${sid}`))[0]
-      return startEditFieldInline(ctx, c, sid, 'Student', 'name', '👤 الاسم الجديد:', `hs_${s?.halakaId || ''}`)
+
+    // Student edit fields
+    if (d.startsWith('esn_')) return startEditInline(ctx, c, d.slice(4), 'Student', 'name', '👤 الاسم الجديد:', `se_${d.slice(4)}`)
+    if (d.startsWith('esu_')) return startEditInline(ctx, c, d.slice(4), 'Student', 'surah', '📖 السورة الجديدة:', `se_${d.slice(4)}`)
+    if (d.startsWith('esa_')) return startEditInline(ctx, c, d.slice(4), 'Student', 'age', '🎂 العمر الجديد (رقم):', `se_${d.slice(4)}`)
+    if (d.startsWith('espn_')) return startEditInline(ctx, c, d.slice(4), 'Student', 'parentName', '🧑‍👦 اسم ولي الأمر الجديد:', `se_${d.slice(4)}`)
+    if (d.startsWith('espp_')) return startEditInline(ctx, c, d.slice(4), 'Student', 'parentPhone', '📱 هاتف ولي الأمر الجديد:', `se_${d.slice(4)}`)
+
+    // Student add - halaka selection (step 7)
+    if (d.startsWith('newhal_') && getState(c).action === 'add_stu' && getState(c).step === 7) {
+      const hid = d.slice(7)
+      const state = getState(c)
+      state.data.hid = hid
+      state.step = 8
+      await ed(ctx, `📝 ${bold('الخطوة 8/8')} — 📱 هاتف ولي الأمر (اختياري):`, cancelKeyboard())
+      return
     }
-    if (d.startsWith('esu_')) {
-      const sid = d.slice(4); const s = (await sbGet('Student', `id=eq.${sid}`))[0]
-      return startEditFieldInline(ctx, c, sid, 'Student', 'surah', '📖 السورة الجديدة:', `hs_${s?.halakaId || ''}`)
-    }
-    if (d.startsWith('esa_')) {
-      const sid = d.slice(4); const s = (await sbGet('Student', `id=eq.${sid}`))[0]
-      return startEditFieldInline(ctx, c, sid, 'Student', 'age', '🎂 العمر الجديد (رقم):', `hs_${s?.halakaId || ''}`)
-    }
+
+    // Student level select
     if (d.startsWith('esl_')) {
       const sid = d.slice(4)
       const kb = new InlineKeyboard()
-      for (const l of ['مبتدئ', 'متوسط', 'متقدم']) kb.text(l, `stl_${sid}_${l}`).row()
+      for (const l of LEVELS) kb.text(l, `stl_${sid}_${l}`).row()
       kb.row().text('🔙', `se_${sid}`).text('🏠', 'home')
-      await ed(ctx, `✏️ ${bold('اختر المستوى:')}`, kb)
+      await ed(ctx, `✏️ ${bold('اختر المستوى الجديد:')}`, kb)
       return
     }
     if (d.startsWith('stl_')) {
       const p = d.slice(4); const idx = p.indexOf('_')
       const sid = p.slice(0, idx); const lvl = p.slice(idx + 1)
       await sbPatch('Student', `id=eq.${sid}`, { level: lvl })
-      await ed(ctx, `✅ المستوى: ${bold(lvl)}`, backKeyboard(`se_${sid}`))
+      await ed(ctx, `✅ ${bold('تم تغيير المستوى!')}\n\nالمستوى الجديد: ${bold(lvl)}`, backKeyboard(`se_${sid}`))
       return
     }
+
+    // Student category select
     if (d.startsWith('esc_')) {
       const sid = d.slice(4)
       const kb = new InlineKeyboard()
-      for (const cat of ['1-10', '10-20', '20-30', '30-20', 'محو الامية']) kb.text(cat, `stc_${sid}_${cat}`).row()
+      for (const cat of CATEGORIES) kb.text(cat, `stc_${sid}_${cat}`).row()
       kb.row().text('🔙', `se_${sid}`).text('🏠', 'home')
-      await ed(ctx, `✏️ ${bold('اختر الفئة:')}`, kb)
+      await ed(ctx, `✏️ ${bold('اختر الفئة الجديدة:')}`, kb)
       return
     }
     if (d.startsWith('stc_')) {
       const p = d.slice(4); const idx = p.indexOf('_')
       const sid = p.slice(0, idx); const cat = p.slice(idx + 1)
       await sbPatch('Student', `id=eq.${sid}`, { category: cat })
-      await ed(ctx, `✅ الفئة: ${bold(cat)}`, backKeyboard(`se_${sid}`))
+      await ed(ctx, `✅ ${bold('تم تغيير الفئة!')}\n\nالفئة الجديدة: ${bold(cat)}`, backKeyboard(`se_${sid}`))
       return
     }
 
-    // ── Attendance callbacks ──
+    // ═══ STUDENT ADD SUB-STEPS ═══
+    // Category selection (step 4)
+    if (d.startsWith('newcat_') && getState(c).action === 'add_stu' && getState(c).step === 4) {
+      const cat = d.slice(7)
+      const state = getState(c)
+      state.data.cat = cat
+      state.step = 5
+      const kb = new InlineKeyboard()
+      for (const l of LEVELS) kb.text(l, `newlvl_${l}`).row()
+      kb.row().text('❌ إلغاء', 'cancel')
+      await ed(ctx, `📝 ${bold('الخطوة 5/8')} — 📊 المستوى:`, kb)
+      return
+    }
+    // Level selection (step 5)
+    if (d.startsWith('newlvl_') && getState(c).action === 'add_stu' && getState(c).step === 5) {
+      const lvl = d.slice(7)
+      const state = getState(c)
+      state.data.lvl = lvl
+      state.step = 6
+      await ed(ctx, `📝 ${bold('الخطوة 6/8')} — 🧑‍👦 اسم ولي الأمر (اختياري):`, cancelKeyboard())
+      return
+    }
+
+    // ═══ ATTENDANCE CALLBACKS ═══
     if (d.startsWith('ath_')) return viewAttHalaka(ctx, c, d.slice(4))
     if (d.startsWith('atm_')) {
       const parts = d.slice(4).split('|')
       return markAttendance(ctx, c, parts[0], parts[1], parts[2])
     }
 
-    // ── Graduates callbacks ──
+    // ═══ GRADUATES CALLBACKS ═══
     if (d.startsWith('gp_')) return viewGraduates(ctx, c, parseInt(d.slice(3)))
-    if (d.startsWith('gdc_')) { await sbDelete('CenterInfo', `id=eq.${d.slice(4)}`); await ed(ctx, `✅ ${bold('تم الحذف')}`, backKeyboard('m_grad')); return }
+    if (d.startsWith('gdc_')) {
+      await sbDelete('CenterInfo', `id=eq.${d.slice(4)}`)
+      await ed(ctx, `✅ ${bold('تم حذف الدفعة')}`, backKeyboard('m_grad'))
+      return
+    }
     if (d === 'grad_add') return startAddGraduate(ctx, c)
 
-    // ── Competition callbacks ──
+    // ═══ COMPETITION CALLBACKS ═══
     if (d.startsWith('cp_')) return viewCompetitions(ctx, c, parseInt(d.slice(3)))
-    if (d.startsWith('cdc_')) { await sbDelete('CenterInfo', `id=eq.${d.slice(4)}`); await ed(ctx, `✅ ${bold('تم الحذف')}`, backKeyboard('m_comp')); return }
+    if (d.startsWith('cdc_')) {
+      await sbDelete('CenterInfo', `id=eq.${d.slice(4)}`)
+      await ed(ctx, `✅ ${bold('تم حذف المسابقة')}`, backKeyboard('m_comp'))
+      return
+    }
     if (d === 'comp_add') return startAddCompetition(ctx, c)
     if (d.startsWith('comp_type_')) {
       const type = d.slice(10)
@@ -508,7 +704,7 @@ bot.on('callback_query:data', async (ctx) => {
       return
     }
 
-    // ── Media callbacks ──
+    // ═══ MEDIA CALLBACKS ═══
     if (d.startsWith('malb_')) return viewMediaList(ctx, c, d.slice(5), 0)
     if (d.startsWith('mp_')) {
       const p = d.slice(3).split('_')
@@ -516,88 +712,65 @@ bot.on('callback_query:data', async (ctx) => {
     }
     if (d.startsWith('mdel_')) {
       await sbDelete('MediaImage', `id=eq.${d.slice(5)}`)
-      await ed(ctx, `✅ ${bold('تم الحذف')}`, backKeyboard('m_media'))
+      await ed(ctx, `✅ ${bold('تم حذف الصورة')}`, backKeyboard('m_media'))
       return
     }
-    if (d === 'media_upload') {
+    if (d === 'media_upload') return startMediaUpload(ctx, c)
+    if (d.startsWith('photoalb_')) {
+      const album = d.slice(8)
       const state = getState(c)
-      state.action = 'wait_photo'
-      state.step = 1
-      state.data = {}
-      await ed(ctx, `📤 ${bold('رفع صورة')}\n${LINE}\n\nأرسل الصورة مباشرة كرسالة وسائط`, cancelKeyboard())
+      if (state.action === 'wait_photo') {
+        state.data.album = album
+        state.step = 2
+        await ed(ctx,
+          `📤 ${bold('رفع صورة')}\n${LINE}\n\n📁 الألبوم: ${bold(album)}\n\nأرسل الصورة الآن:`,
+          cancelKeyboard()
+        )
+      }
       return
     }
 
-    // ── Activity pagination ──
+    // ═══ ACTIVITY CALLBACKS ═══
     if (d.startsWith('ap_')) return viewActivities(ctx, c, parseInt(d.slice(3)))
+    if (d.startsWith('adel_')) {
+      await sbDelete('Activity', `id=eq.${d.slice(5)}`)
+      await ed(ctx, `✅ ${bold('تم حذف النشاط')}`, backKeyboard('m_act'))
+      return
+    }
+    if (d === 'act_add') return startAddActivity(ctx, c)
+    if (d.startsWith('newacttype_') && getState(c).action === 'add_act' && getState(c).step === 3) {
+      const actType = d.slice(11)
+      const state = getState(c)
+      state.data.actType = actType
+      state.step = 4
+      await ed(ctx, `📝 ${bold('الخطوة 4/4')} — 📝 وصف النشاط (اختياري):`, cancelKeyboard())
+      return
+    }
 
-    // ── Center info edit ──
+    // ═══ CENTER INFO ═══
     if (d.startsWith('sinf_')) {
       const id = d.slice(4)
       const row = (await sbGet('CenterInfo', `id=eq.${id}`))[0]
       if (!row) return
-      const state = startConversation(c, 'edit_field')
+      startConversation(c, 'edit_field')
+      const state = getState(c)
       state.data = { id, table: 'CenterInfo', field: 'value', backCb: 'm_set' }
-      await ed(ctx, `✏️ ${bold('تعديل: ' + row.key)}\n\nالقيمة الحالية: ${esc(String(row.value).slice(0, 100))}\n\nأرسل القيمة الجديدة:`, cancelKeyboard())
-      return
-    }
-
-    // ── Student add sub-steps ──
-    if (d.startsWith('nsc_')) {
-      const cat = d.slice(4); const state = getState(c)
-      if (state.action === 'add_stu' && state.step === 4) {
-        state.data.cat = cat
-        state.step = 5
-        const kb = new InlineKeyboard()
-        for (const l of ['مبتدئ', 'متوسط', 'متقدم']) kb.text(l, `nsl_${l}`).row()
-        kb.row().text('❌ إلغاء', 'cancel')
-        await ed(ctx, `📝 ${bold('الخطوة 5/6')} — 📊 المستوى:`, kb)
-      }
-      return
-    }
-    if (d.startsWith('nsl_')) {
-      const lvl = d.slice(4); const state = getState(c)
-      if (state.action === 'add_stu' && state.step === 5) {
-        state.data.lvl = lvl
-        state.step = 6
-        const halakat = await sbGet('Halaka', 'order=createdAt.asc')
-        if (!halakat.length) { await ed(ctx, '❌ لا توجد حلقات', cancelKeyboard()); return }
-        const kb = new InlineKeyboard()
-        for (const h of halakat.slice(0, 15)) kb.text(`📚 ${esc(h.name)}`, `nsh_${h.id}`).row()
-        kb.row().text('❌ إلغاء', 'cancel')
-        await ed(ctx, `📝 ${bold('الخطوة 6/6')} — 🏫 الحلقة:`, kb)
-      }
-      return
-    }
-    if (d.startsWith('nsh_')) {
-      const hid = d.slice(4); const state = getState(c)
-      if (state.action === 'add_stu' && state.step === 6) {
-        state.data.hid = hid
-        state.step = 7
-        await ed(ctx, `📝 ${bold('الخطوة الأخيرة')} — 📱 هاتف ولي الأمر (اختياري):`, cancelKeyboard())
-      }
+      await ed(ctx,
+        `✏️ ${bold('تعديل: ' + row.key)}\n\nالقيمة الحالية:\n${esc(String(row.value).slice(0, 150))}\n\nأرسل القيمة الجديدة:`,
+        cancelKeyboard()
+      )
       return
     }
 
     await ed(ctx, '❌ أمر غير معروف', mainKeyboard())
   } catch (e) {
     console.error('[CB Error]', e)
-    try { await ctx.reply('❌ حدث خطأ', { parse_mode: 'MarkdownV2' }) } catch {}
+    try { await ctx.reply('❌ حدث خطأ، حاول مرة أخرى') } catch {}
   }
 })
 
-// ── Inline helpers for edit fields ─────────────────────────────────────────────
-async function startAddHalaka(ctx: any, c: number) {
-  startConversation(c, 'add_hal')
-  await ed(ctx, `📚 ${bold('إضافة حلقة جديدة')}\n${LINE}\n\n📝 ${bold('الخطوة 1/4')} — 🏫 اسم الحلقة:`, cancelKeyboard())
-}
-
-async function startAddStudent(ctx: any, c: number) {
-  startConversation(c, 'add_stu')
-  await ed(ctx, `👥 ${bold('إضافة طالب جديد')}\n${LINE}\n\n📝 ${bold('الخطوة 1/6')} — 👤 اسم الطالب:`, cancelKeyboard())
-}
-
-async function startEditFieldInline(ctx: any, c: number, id: string, table: string, field: string, prompt: string, backCb: string) {
+// ── Helper: Start inline edit field ──────────────────────────────────────────
+async function startEditInline(ctx: any, c: number, id: string, table: string, field: string, prompt: string, backCb: string) {
   const state = startConversation(c, 'edit_field')
   state.data = { id, table, field, backCb }
   await ed(ctx, `✏️ ${bold('تعديل')}\n${LINE}\n\n${prompt}`, cancelKeyboard())
@@ -608,23 +781,32 @@ async function startEditFieldInline(ctx: any, c: number, id: string, table: stri
 // ═══════════════════════════════════════════════════════════════════════════════
 
 async function main() {
+  console.log('🚀 Alseeva2026 Bot v6.0 starting...')
+
+  // Clear webhook
   try {
     await bot.api.deleteWebhook({ drop_pending_updates: true })
     console.log('✅ Webhook cleared')
-  } catch { /* ignore */ }
+  } catch {}
 
+  // Set commands
   try {
     await bot.api.setMyCommands([
       { command: 'start', description: '🏠 القائمة الرئيسية' },
       { command: 'login', description: '🔐 تسجيل الدخول' },
-      { command: 'help', description: '📋 المساعدة' },
+      { command: 'help', description: '❓ المساعدة' },
     ])
     console.log('✅ Bot commands set')
-  } catch { /* ignore */ }
+  } catch {}
 
-  console.log('🚀 Alseeva2026 Bot v5.0 starting...')
+  console.log('✅ Bot starting with long polling...')
   bot.start({
-    onStart: (info) => console.log(`✅ @${info.username} running (id: ${info.id})`),
+    onStart: (info) => {
+      console.log(`✅ @${info.username} is running (id: ${info.id})`)
+      console.log(`   SUPABASE: ${process.env.SUPABASE_URL?.slice(0, 40)}...`)
+      console.log(`   CHANNEL: ${process.env.CHANNEL_ID || 'not set'}`)
+      console.log(`   ADMIN_ID: ${process.env.ADMIN_ACCOUNT_ID || 'not set'}`)
+    },
   })
 }
 

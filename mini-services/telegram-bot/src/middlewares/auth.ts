@@ -3,11 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { Middleware } from 'grammy'
-import {
-  isAuthenticated,
-  isPendingPassword,
-  isAdmin,
-} from '../services/auth.js'
+import { isAuthenticated, isPendingPassword } from '../services/auth.js'
 import { getState } from '../services/conversation.js'
 
 export const authMiddleware: Middleware = async (ctx, next) => {
@@ -29,13 +25,13 @@ export const authMiddleware: Middleware = async (ctx, next) => {
     if (!isAuthenticated(c)) {
       try {
         await ctx.answerCallbackQuery({ text: '🔒 سجل دخولك أولاً' })
-      } catch { /* ignore */ }
+      } catch {}
       return
     }
     return next()
   }
 
-  // Text messages in conversation flow
+  // Text messages in active conversation flow
   const state = getState(c)
   if (state.action) return next()
 

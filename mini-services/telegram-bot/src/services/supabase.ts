@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// Supabase Client — REST API Wrapper
-// All env vars from GitHub Secrets (no hardcoded values)
+// Supabase REST API Client
+// Env vars: SUPABASE_URL, SUPABASE_KEY
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY!
+const SUPABASE_URL = process.env.SUPABASE_URL!
+const SUPABASE_KEY = process.env.SUPABASE_KEY!
 
-if (!SUPABASE_URL) throw new Error('NEXT_PUBLIC_SUPABASE_URL env var is required')
-if (!SUPABASE_KEY) throw new Error('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY env var is required')
+if (!SUPABASE_URL) throw new Error('SUPABASE_URL env var is required')
+if (!SUPABASE_KEY) throw new Error('SUPABASE_KEY env var is required')
 
 function headers(extra?: Record<string, string>): Record<string, string> {
   return {
@@ -27,18 +27,19 @@ export function now(): string {
 }
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
-export async function sbGet<T = any>(table: string, query?: string): Promise<T[]> {
+export async function sbGet(table: string, query?: string): Promise<any[]> {
   const url = `${SUPABASE_URL}/rest/v1/${table}${query ? '?' + query : ''}`
   const res = await fetch(url, { headers: headers() })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`GET ${table}: ${res.status} — ${text.slice(0, 200)}`)
+    console.error(`[sbGet] ${table}: ${res.status} — ${text.slice(0, 200)}`)
+    return []
   }
   return res.json()
 }
 
-// ─── POST (create) ────────────────────────────────────────────────────────────
-export async function sbPost<T = any>(table: string, data: Record<string, unknown>): Promise<T> {
+// ─── POST ────────────────────────────────────────────────────────────────────
+export async function sbPost(table: string, data: Record<string, any>): Promise<any> {
   const url = `${SUPABASE_URL}/rest/v1/${table}`
   const res = await fetch(url, {
     method: 'POST',
@@ -47,14 +48,15 @@ export async function sbPost<T = any>(table: string, data: Record<string, unknow
   })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`POST ${table}: ${res.status} — ${text.slice(0, 200)}`)
+    console.error(`[sbPost] ${table}: ${res.status} — ${text.slice(0, 200)}`)
+    throw new Error(`POST ${table}: ${res.status}`)
   }
   const result = await res.json()
   return Array.isArray(result) ? result[0] : result
 }
 
-// ─── PATCH (update) ──────────────────────────────────────────────────────────
-export async function sbPatch<T = any>(table: string, filter: string, data: Record<string, unknown>): Promise<T> {
+// ─── PATCH ───────────────────────────────────────────────────────────────────
+export async function sbPatch(table: string, filter: string, data: Record<string, any>): Promise<any> {
   const url = `${SUPABASE_URL}/rest/v1/${table}?${filter}`
   const res = await fetch(url, {
     method: 'PATCH',
@@ -63,18 +65,37 @@ export async function sbPatch<T = any>(table: string, filter: string, data: Reco
   })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`PATCH ${table}: ${res.status} — ${text.slice(0, 200)}`)
+    console.error(`[sbPatch] ${table}: ${res.status} — ${text.slice(0, 200)}`)
+    throw new Error(`PATCH ${table}: ${res.status}`)
   }
   const result = await res.json()
   return Array.isArray(result) ? result[0] : result
 }
 
-// ─── DELETE ───────────────────────────────────────────────────────────────────
+// ─── DELETE ──────────────────────────────────────────────────────────────────
 export async function sbDelete(table: string, filter: string): Promise<void> {
   const url = `${SUPABASE_URL}/rest/v1/${table}?${filter}`
   const res = await fetch(url, { method: 'DELETE', headers: headers() })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`DELETE ${table}: ${res.status} — ${text.slice(0, 200)}`)
+    console.error(`[sbDelete] ${table}: ${res.status} — ${text.slice(0, 200)}`)
+    throw new Error(`DELETE ${table}: ${res.status}`)
   }
+}
+
+// ─── Upsert (POST with Prefer: resolution=merge-duplicates) ──────────────────
+export async function sbUpsert(table: string, data: Record<string, any>): Promise<any> {
+  const url = `${SUPABASE_URL}/rest/v1/${table}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: headers({ Prefer: 'resolution=merge-duplicates,return=representation' }),
+    body: JSON.stringify({ ...data, updatedAt: now() }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    console.error(`[sbUpsert] ${table}: ${res.status} — ${text.slice(0, 200)}`)
+    throw new Error(`UPSERT ${table}: ${res.status}`)
+  }
+  const result = await res.json()
+  return Array.isArray(result) ? result[0] : result
 }
