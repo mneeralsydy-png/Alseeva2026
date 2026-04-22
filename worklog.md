@@ -44,3 +44,28 @@ Work Log:
 Stage Summary:
 - Media fix: APK now uses server proxy at abualzahracom.online/api/telegram/image-proxy
 - Bot issue: User needs to restart PM2 alshifa-bot process on server
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Add direct viewer entry button + configure live server loading
+
+Work Log:
+- Modified src/app/page.tsx: Added "دخول إلى العرض العام" button on splash screen
+- handleDirectViewer() bypasses login entirely — directly sets view='viewer' in localStorage
+- Admin login moved to collapsible "دخول لوحة التحكم" section (ShieldCheck icon)
+- Added new Lucide icons: Eye, ShieldCheck, ChevronDown, ChevronUp
+- Configured capacitor.config.ts with server.url: 'https://abualzahracom.online'
+- This means APK loads from live server — future UI changes won't need Google Play updates
+- Bumped Android version to 1.3 (versionCode 4)
+- Deployed new build to server via SSH (paramiko): uploaded standalone build + static files + public
+- Restarted PM2 alshifa website process
+- Verified both services online: alshifa (port 3000) and alshifa-bot (port 3030)
+- Pushed to GitHub — triggered APK v1.3 build via GitHub Actions
+
+Stage Summary:
+- Website now shows direct "دخول إلى العرض العام" button on login screen
+- Admin login accessible via "دخول لوحة التحكم" toggle (no longer primary UI)
+- Capacitor configured to load from live server URL (one-time APK update needed)
+- After v1.3 APK is installed, all future server-side UI changes auto-reflect in app
+- Both server services confirmed online and working
