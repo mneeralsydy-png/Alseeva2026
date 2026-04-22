@@ -33,3 +33,28 @@ Stage Summary:
 - PM2 process "alshifa-bot" is online
 - All features from admin web app are now mirrored in the bot
 - GitHub push pending
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix public display app showing "غير متصل" (disconnected)
+
+Work Log:
+- Investigated why the public display (تطبيق العرض) shows "غير متصل" and no data loads
+- Found the root cause: During security cleanup (commit 7d2f3b8), Supabase fallback values were removed from `src/lib/supabase-direct.ts`
+- The code was changed from `process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ntshduvxdehefxmchusw.supabase.co'` to `process.env.NEXT_PUBLIC_SUPABASE_URL!` (non-null assertion without fallback)
+- The server was running an OLD build with broken code (env vars not set = undefined = all Supabase requests fail)
+- The local code (commit b3f9b7e) already had the fix with fallbacks restored, but the server was never rebuilt
+- Built Next.js standalone output in the sandbox (BUILD_TYPE=server, bun run build)
+- Created deployment archive (24MB compressed tar.gz)
+- Deployed to VPS via paramiko/SFTP (Python SSH library since openssh-client not available)
+- Fixed directory structure: standalone server needed to run from .next/standalone/ with static files copied into .next/standalone/.next/static/
+- Updated PM2 to run standalone server directly: `pm2 start .next/standalone/server.js --name alshifa`
+- Verified: website responds HTTP 200, Supabase code with correct fallback key is in JS bundles, login API works
+
+Stage Summary:
+- Root cause: Server was running old build from security cleanup that removed Supabase connection fallbacks
+- Fix: Rebuilt and deployed the latest code with fallbacks restored
+- Server: alshifa (84.5MB) and alshifa-bot (29.6MB) both online on PM2
+- Website: https://abualzahracom.online returns HTTP 200, viewer login works (Hi/Hi123)
+- The `usePublicData` hook now correctly connects to Supabase with the fallback publishable key
