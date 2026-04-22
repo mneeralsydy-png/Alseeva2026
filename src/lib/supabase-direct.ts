@@ -2,8 +2,8 @@
 // This reads directly from Supabase WITHOUT going through the Next.js server
 // Used by the viewer/public app to be resilient against server downtime
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ntshduvxdehefxmchusw.supabase.co'
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_nnhQkb5fX6SPZ7Nx8L7rcg_r-BDxd-M'
 
 function headers(extra?: Record<string, string>) {
   return {
@@ -47,7 +47,7 @@ export async function sbDirectCount(table: string, query?: string): Promise<numb
 
 // Telegram Bot API - direct client-side access for media files
 // The Telegram Bot API is publicly accessible, so the app can fetch media directly
-const BOT_TOKEN = process.env.BOT_TOKEN!
+const BOT_TOKEN = process.env.NEXT_PUBLIC_BOT_TOKEN || ''
 
 // Get Telegram file direct URL (2-step process: getFile → build URL)
 export async function getTelegramFileUrl(fileId: string): Promise<string | null> {
