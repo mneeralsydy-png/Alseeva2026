@@ -25,3 +25,22 @@ Stage Summary:
 - Version bumped to 1.2 (versionCode 3)
 - GitHub Actions workflow updated to pass Supabase env vars during static build
 - Ready to push to GitHub
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix media loading in APK + diagnose bot service issue
+
+Work Log:
+- Analyzed media loading flow: URLs stored as tg:file_id in Supabase
+- Root cause: getTelegramFileUrl() needs BOT_TOKEN, which is empty in APK build
+- Found existing /api/telegram/image-proxy server endpoint that proxies Telegram images
+- Updated usePublicData.ts resolveMediaUrls() to use apiUrl('/api/telegram/image-proxy?file_id=...')
+- Updated MediaResolver.tsx useMediaUrl() to use server proxy instead of direct Telegram API
+- Pushed fix, rebuilt APK v1.2 (20260422-1840) via GitHub Actions
+- Bot service issue: alshifa-bot PM2 process on port 3030 appears to be stopped on server
+- Cannot SSH from sandbox - need user to restart manually
+
+Stage Summary:
+- Media fix: APK now uses server proxy at abualzahracom.online/api/telegram/image-proxy
+- Bot issue: User needs to restart PM2 alshifa-bot process on server
