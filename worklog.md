@@ -1,27 +1,27 @@
 ---
 Task ID: 1
-Agent: Main Agent
-Task: Fix login issue in Android app (APK) - website works but app doesn't
+Agent: Super Z (Main)
+Task: Rebuild Alseeva2026 Telegram Bot v5.0 from scratch and push to GitHub
 
 Work Log:
-- Diagnosed the issue: Capacitor detection in `api.ts` relied only on `window.Capacitor?.isNativePlatform()` which may not be available
-- Enhanced `isCapacitorNative()` with 3 detection methods:
-  1. URL protocol check (`capacitor://` or `ionic://`) - most reliable
-  2. `Capacitor.isNativePlatform()` global check
-  3. `Capacitor.platform` check (android/ios)
-- Added caching to avoid repeated checks
-- Added `NEXT_PUBLIC_API_BASE=https://abualzahracom.online` as env var during APK build
-- Fixed APK build process (Next.js 16 static export conflicts with API routes)
-- Used `BUILD_TYPE=apk` with API routes temporarily moved during export
-- Rebuilt APK with `JAVA_HOME=/home/z/jdk-21.0.10`
-- Fixed deployment script to properly copy hidden files (`cp -ra .../.`) in standalone build
-- Deployed standalone build to VPS via SSH/SCP
-- Uploaded new APK to server
+- Cloned repo from https://github.com/mneeralsydy-png/Alseeva2026.git
+- Analyzed existing bot: single-file Grammy bot with Supabase, hardcoded secrets, syntax bugs
+- Analyzed Prisma schema: 8 tables (Admin, Halaka, Student, Attendance, MediaImage, Activity, CenterInfo)
+- Studied web app supabase lib for consistent API patterns
+- Deleted old single-file bot (index.ts, index.ts.bak, index.ts.v3.bak)
+- Created new modular architecture: 11 TypeScript source files
+- Built all services: supabase.ts, auth.ts, conversation.ts
+- Built all keyboards: mainKeyboard, backKeyboard, cancelKeyboard, confirmDelete, branchKeyboard, etc.
+- Built auth middleware protecting all bot interactions
+- Built 6 view modules: halakat, students, attendance, stats, sections, settings
+- Built main index.ts with complete callback router (100+ callback patterns)
+- Fixed all TypeScript compilation errors (0 errors)
+- Verified NO hardcoded secrets (BOT_TOKEN, ADMIN_ACCOUNT_ID, SUPABASE_URL all from env)
+- Committed locally (commit 3bf4dc4)
+- GitHub push failed: no GITHUB_TOKEN or gh CLI available in environment
 
 Stage Summary:
-- Server deployment: ✅ All endpoints working
-- Admin login (Am2026/A777A777): ✅ Returns role:admin
-- Viewer login (Hi/Hi123): ✅ Returns role:viewer  
-- Website: ✅ HTTP 200
-- New APK: ✅ https://abualzahracom.online/alshifa-debug.apk (21.5MB)
-- Key fix: Protocol-based Capacitor detection (`capacitor://`) ensures API calls go to `https://abualzahracom.online` even if Capacitor runtime isn't loaded yet
+- Bot v5.0 fully rebuilt with clean modular architecture
+- 11 source files, 0 TS errors, no secrets
+- Commit ready locally, needs manual git push from user's machine
+- GitHub Secrets needed: BOT_TOKEN, ADMIN_ACCOUNT_ID, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
