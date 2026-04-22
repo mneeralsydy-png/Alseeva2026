@@ -1,0 +1,129 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// Views — Halakat (Study Circles) Management
+// ═══════════════════════════════════════════════════════════════════════════════
+
+import { InlineKeyboard } from 'grammy'
+import { sbGet, sbPost, sbPatch, sbDelete } from '../services/supabase.js'
+import { clearState } from '../services/conversation.js'
+import { ed } from '../utils/messenger.js'
+import { bold, esc, LINE, italic, PAGE_SIZE } from '../utils/helpers.js'
+import {
+  backKeyboard, cancelKeyboard,
+  mainKeyboard, homeKeyboard, confirmDeleteKeyboard,
+} from '../keyboards/index.js'
+
+// ─── Halakat List ─────────────────────────────────────────────────────────────
+export async function viewHalList(ctx: any, c: number, page: number) {
+  clearState(c)
+  const halakat = await sbGet('Halaka', 'order=createdAt.asc')
+
+  if (!halakat.length) {
+    const kb = new InlineKeyboard()
+      .text('➕ إضافة حلقة', 'action_add_hal')
+      .row().text('🏠', 'home')
+    await ed(ctx, `📚 ${bold('الحلقات')}\n${LINE}\n\nلا توجد حلقات بعد`, kb)
+    return
+  }
+
+  const totalPages = Math.ceil(halakat.length / PAGE_SIZE)
+  const slice = halakat.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  let msg = `📚 ${bold('قائمة الحلقات')}  📄 ${page + 1}/${totalPages}\n${LINE}\n\n`
+  const kb = new InlineKeyboard()
+
+  for (const h of slice) {
+    msg += `🏫 ${bold(h.name)}  👨‍🏫 ${esc(h.teacher || '—')}  🌳 ${esc(h.branch || '—')}\n\n`
+    kb.text('👥 الطلاب', `hs_${h.id}`)
+      .text('✏️ تعديل', `he_${h.id}`)
+      .text('🗑️', `hd_${h.id}`).row()
+  }
+
+  if (totalPages > 1) {
+    if (page > 0) kb.text('⬅️', `hp_${page - 1}`)
+    if (page < totalPages - 1) kb.text('➡️', `hp_${page + 1}`)
+    kb.row()
+  }
+  kb.text('➕ إضافة حلقة', 'action_add_hal').row().text('🏠', 'home')
+  await ed(ctx, msg, kb)
+}
+
+// ─── Halaka Students ──────────────────────────────────────────────────────────
+export async function viewHalStudents(ctx: any, c: number, hid: string, page: number) {
+  clearState(c)
+  const [hResult, students] = await Promise.all([
+    sbGet('Halaka', `id=eq.${hid}`),
+    sbGet('Student', `halakaId=eq.${hid}&order=createdAt.asc`),
+  ])
+  const halaka = hResult[0]
+
+  if (!halaka) { await ed(ctx, '❌ الحلقة غير موجودة', homeKeyboard()); return }
+  if (!students.length) {
+    const kb = new InlineKeyboard()
+      .text('➕ إضافة طالب', 'action_add_stu')
+      .row().text('🔙', 'm_hal').text('🏠', 'home')
+    await ed(ctx, `📚 ${bold(halaka.name)} — لا طلاب`, kb)
+    return
+  }
+
+  const totalPages = Math.ceil(students.length / PAGE_SIZE)
+  const slice = students.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  let msg = `📚 ${bold(halaka.name)} — 👥 الطلاب (${students.length})\n👨‍🏫 ${esc(halaka.teacher)}\n${LINE}\n\n`
+  const kb = new InlineKeyboard()
+
+  for (const s of slice) {
+    msg += `👤 ${bold(s.name)}  📖 ${esc(s.surah || '—')}  📊 ${esc(s.level || '—')}\n\n`
+    kb.text('✅ حضور', `sa_${s.id}`).text('✏️', `se_${s.id}`).text('🗑️', `sd_${s.id}`).row()
+  }
+
+  if (totalPages > 1) {
+    if (page > 0) kb.text('⬅️', `sp_${page - 1}_${hid}`)
+    if (page < totalPages - 1) kb.text('➡️', `sp_${page + 1}_${hid}`)
+    kb.row()
+  }
+  kb.text('➕ إضافة طالب', 'action_add_stu').row()
+    .text('🔙', `he_${hid}`).text('📚 الحلقات', 'm_hal').row().text('🏠', 'home')
+  await ed(ctx, msg, kb)
+}
+
+// ─── Halaka Edit ─────────────────────────────────────────────────────────────
+export async function viewHalEdit(ctx: any, c: number, hid: string) {
+  clearState(c)
+  const h = (await sbGet('Halaka', `id=eq.${hid}`))[0]
+  if (!h) { await ed(ctx, '❌ الحلقة غير موجودة', homeKeyboard()); return }
+
+  await ed(ctx,
+    `✏️ ${bold('تعديل الحلقة')}\n${LINE}\n\n` +
+    `🏫 ${bold(h.name)}\n` +
+    `👨‍🏫 ${esc(h.teacher || '—')}\n` +
+    `🌳 ${esc(h.branch || '—')}\n` +
+    `🕐 ${esc(h.time || '—')}\n` +
+    `📍 ${esc(h.location || '—')}\n` +
+    `📝 ${esc(h.description || '—')}`,
+    new InlineKeyboard()
+      .text('🏫 الاسم', `ehn_${hid}`).text('👨‍🏫 المعلم', `eht_${hid}`).row()
+      .text('🌳 الفرع', `ehb_${hid}`).text('🕐 الموعد', `ehti_${hid}`).row()
+      .text('📍 المكان', `ehlo_${hid}`).text('📝 الوصف', `ehd_${hid}`).row()
+      .text('🔙', 'm_hal').text('🏠', 'home')
+  )
+}
+
+// ─── Delete Halaka ────────────────────────────────────────────────────────────
+export async function confirmDeleteHal(ctx: any, c: number, hid: string) {
+  const h = (await sbGet('Halaka', `id=eq.${hid}`))[0]
+  const name = h?.name || hid
+  await ed(ctx,
+    `⚠️ ${bold('تأكيد حذف الحلقة')}\n\n${esc(name)}؟\n\n${italic('لا يمكن التراجع')}`,
+    confirmDeleteKeyboard(`hdc_${hid}`, `m_hal`)
+  )
+}
+
+export async function doDeleteHal(ctx: any, c: number, hid: string) {
+  try {
+    await sbDelete('Halaka', `id=eq.${hid}`)
+    await ed(ctx, `✅ ${bold('تم حذف الحلقة')}`, mainKeyboard())
+  } catch (e) {
+    console.error('[DELETE HAL]', e)
+    await ed(ctx, '❌ حدث خطأ أثناء الحذف', mainKeyboard())
+  }
+}
