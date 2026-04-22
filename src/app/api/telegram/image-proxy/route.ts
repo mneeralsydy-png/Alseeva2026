@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 
-const BOT_TOKEN = '8432772266:AAEYLFX34FiAxIqhTBS59-d06PUJORbWP6w'
+const BOT_TOKEN = process.env.BOT_TOKEN!
 
 // GET /api/telegram/image-proxy — Proxy image from Telegram Bot API
 export async function GET(request: Request) {

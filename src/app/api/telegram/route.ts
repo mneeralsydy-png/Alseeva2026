@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 
 
-const BOT_TOKEN = '8432772266:AAEYLFX34FiAxIqhTBS59-d06PUJORbWP6w'
-const CHANNEL_ID = '-1003778275232'
+const BOT_TOKEN = process.env.BOT_TOKEN!
+const CHANNEL_ID = process.env.CHANNEL_ID || ''
 const BOT_SERVICE_URL = 'http://localhost:3030'
 
 // GET /api/telegram — Get bot status (checks both token validity AND mini-service)

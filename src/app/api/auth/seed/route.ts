@@ -9,7 +9,7 @@ export async function GET() {
     if (count === 0) {
       await sbPost('Admin', {
         username: 'Am2026',
-        password: 'A777A777',
+        password: process.env.ADMIN_DEFAULT_PASSWORD || 'changeme',
         name: 'المدير'
       })
     }

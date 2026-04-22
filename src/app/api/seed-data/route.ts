@@ -334,7 +334,7 @@ export async function GET(request: Request) {
     // Seed admin accounts
     const adminCount = await sbCount('Admin')
     if (adminCount === 0) {
-      await sbPost('Admin', { username: 'Am2026', password: 'A777A777', name: 'المدير' })
+      await sbPost('Admin', { username: 'Am2026', password: process.env.ADMIN_DEFAULT_PASSWORD || 'changeme', name: 'المدير' })
       await sbPost('Admin', { username: 'Hi', password: 'Hi123', name: 'العرض العام' })
     }
 

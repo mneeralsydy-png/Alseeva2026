@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { sbGet } from '@/lib/supabase'
 
 
-const BOT_TOKEN = '8432772266:AAEYLFX34FiAxIqhTBS59-d06PUJORbWP6w'
+const BOT_TOKEN = process.env.BOT_TOKEN!
 
 // GET /api/telegram/imports — Get images from DB
 export async function GET() {

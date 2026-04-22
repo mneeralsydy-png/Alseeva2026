@@ -36,9 +36,9 @@ interface TelegramImport {
   createdAt: string
 }
 
-// Pre-configured credentials
-const CONFIGURED_CHANNEL_ID = '-1003778275232'
-const CONFIGURED_ACCOUNT_ID = '7344776596'
+// Pre-configured credentials (set via environment variables)
+const CONFIGURED_CHANNEL_ID = process.env.NEXT_PUBLIC_CHANNEL_ID || ''
+const CONFIGURED_ACCOUNT_ID = process.env.NEXT_PUBLIC_ADMIN_ID || ''
 
 export function TelegramTab() {
   const [botStatus, setBotStatus] = useState<BotStatus | null>(null)
@@ -289,7 +289,7 @@ export function TelegramTab() {
                     <ol className="text-sm space-y-1.5 list-decimal list-inside" style={{ color: '#78350f' }}>
                       <li>تأكد من تشغيل خدمة البوت</li>
                       <li>أرسل <strong>/start</strong> للبوت في تيلجرام</li>
-                      <li>أرسل <strong>/code A777A777</strong> للربط</li>
+                      <li>أرسل <strong>/code كلمة_المرور</strong> للربط</li>
                       <li>ابدأ بإرسال الصور واختيار الألبوم</li>
                     </ol>
                   </div>
@@ -311,7 +311,7 @@ export function TelegramTab() {
                 <p className="text-sm font-bold" style={{ color: '#166534' }}>📤 رفع الصور من تيلجرام:</p>
                 <p className="text-xs" style={{ color: '#374151' }}>
                   1. افتح محادثة خاصة مع البوت<br/>
-                  2. أرسل /start ثم /code A777A777<br/>
+                  2. أرسل /start ثم /code كلمة_المرور<br/>
                   3. أرسل أي صورة واختر الألبوم<br/>
                   4. سيتم حفظها في القناة ومزامنتها تلقائياً
                 </p>
@@ -522,7 +522,7 @@ export function TelegramTab() {
                   <div>
                     <p className="text-sm font-bold" style={{ color: '#1a5f4a' }}>ربط الحساب</p>
                     <p className="text-xs" style={{ color: '#6b7280' }}>
-                      أرسل <strong>/code A777A777</strong> لربط حساب المدير
+                      أرسل <strong>/code كلمة_المرور</strong> لربط حساب المدير
                     </p>
                   </div>
                 </div>

@@ -2,8 +2,8 @@ import { sbGet, sbPost, sbDelete } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
 
-const BOT_TOKEN = '8432772266:AAEYLFX34FiAxIqhTBS59-d06PUJORbWP6w'
-const CHANNEL_ID = '-1003778275232'
+const BOT_TOKEN = process.env.BOT_TOKEN!
+const CHANNEL_ID = process.env.CHANNEL_ID || '-1003778275232'
 
 // Helper: get image display URL from telegram file_id
 function getImageUrl(media: any): string {
