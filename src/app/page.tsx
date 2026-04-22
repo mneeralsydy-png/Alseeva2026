@@ -14,7 +14,7 @@ import {
   BookOpen, Users, ClipboardCheck, Camera, Calendar,
   LayoutDashboard, LogOut, RefreshCw, TrendingUp, Info,
   Lock, User, Menu, X, ChevronLeft, GraduationCap, Building2,
-  Send, ArrowRight, Trophy, Award,
+  Send, ArrowRight, Trophy, Award, Eye, ShieldCheck, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { DashboardTab } from '@/components/admin/DashboardTab'
 import { HalakatTab } from '@/components/admin/HalakatTab'
@@ -121,6 +121,18 @@ function Home() {
   const [graduateDialogOpen, setGraduateDialogOpen] = useState(false)
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showAdminLogin, setShowAdminLogin] = useState(false)
+
+  // ── Direct viewer entry (no login needed) ──────────────
+  const handleDirectViewer = useCallback(() => {
+    localStorage.setItem('alshifa_auth', JSON.stringify({
+      id: 'viewer-direct',
+      username: 'Hi',
+      name: 'العرض العام',
+      role: 'viewer',
+    }))
+    setView('viewer')
+  }, [])
 
   // ── Helper: formatDate ────────────────────────────────────
   const formatDate = useCallback((dateStr: string) => {
@@ -652,7 +664,7 @@ function Home() {
   }
 
   // ══════════════════════════════════════════════════════════
-  //  RENDER: Login Screen (single form — role determined by credentials)
+  //  RENDER: Splash / Landing Screen
   // ══════════════════════════════════════════════════════════
   if (view === 'splash') {
     return (
@@ -712,89 +724,120 @@ function Home() {
 
           {/* Gold separator */}
           <div
-            className="w-32 h-0.5 mb-4 sm:mb-6 animate-fade-in-up"
+            className="w-32 h-0.5 mb-5 sm:mb-6 animate-fade-in-up"
             style={{ background: 'linear-gradient(90deg, transparent, #d4af37, transparent)', animationDelay: '0.6s', animationFillMode: 'both' }}
           />
 
-          {/* Login Form */}
-          <div
-            className="w-full rounded-2xl p-5 sm:p-6 md:p-8 animate-fade-in-up"
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.07)',
-              WebkitBackdropFilter: 'blur(12px)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              animationDelay: '0.7s',
-              animationFillMode: 'both',
-            }}
-          >
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold flex items-center gap-2" style={{ color: '#d4af37' }}>
-                  <User className="w-4 h-4" />
-                  اسم المستخدم
-                </Label>
-                <Input
-                  placeholder="أدخل اسم المستخدم"
-                  value={username}
-                  onChange={(e) => { setUsername(e.target.value); setLoginError('') }}
-                  className="h-11 text-right bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-yellow-400 focus:ring-yellow-400/20"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
-                  enterKeyHint="next"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold flex items-center gap-2" style={{ color: '#d4af37' }}>
-                  <Lock className="w-4 h-4" />
-                  كلمة المرور
-                </Label>
-                <Input
-                  type="password"
-                  placeholder="أدخل كلمة المرور"
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setLoginError('') }}
-                  className="h-11 text-right bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-yellow-400 focus:ring-yellow-400/20"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
-                  enterKeyHint="go"
-                />
-              </div>
-              {/* Error message display */}
-              {loginError && (
-                <div
-                  className="flex items-center gap-2 p-3 rounded-lg text-sm text-white"
-                  style={{ backgroundColor: 'rgba(220,38,38,0.3)', border: '1px solid rgba(220,38,38,0.4)' }}
-                >
-                  <X className="w-4 h-4 flex-shrink-0" />
-                  <span>{loginError}</span>
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                className="w-full h-12 text-lg font-bold shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-2xl"
-                style={{
-                  background: loginLoading
-                    ? 'linear-gradient(135deg, #999, #bbb, #999)'
-                    : 'linear-gradient(135deg, #d4af37, #f4d03f, #d4af37)',
-                  backgroundSize: '200% 200%',
-                  color: '#0d3d2e',
-                  borderRadius: '0.8rem',
-                }}
-                disabled={loginLoading}
-              >
-                {loginLoading ? (
-                  <span className="flex items-center gap-2">
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    جاري تسجيل الدخول...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    تسجيل الدخول
-                  </span>
-                )}
-              </Button>
-            </form>
+          {/* ── Direct Viewer Entry Button ── */}
+          <div className="w-full animate-fade-in-up" style={{ animationDelay: '0.7s', animationFillMode: 'both' }}>
+            <button
+              onClick={handleDirectViewer}
+              className="w-full h-14 sm:h-16 text-xl sm:text-2xl font-bold shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-2xl flex items-center justify-center gap-3 rounded-2xl"
+              style={{
+                background: 'linear-gradient(135deg, #d4af37, #f4d03f, #d4af37)',
+                backgroundSize: '200% 200%',
+                color: '#0d3d2e',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <Eye className="w-6 h-6 sm:w-7 sm:h-7" />
+              دخول إلى العرض العام
+            </button>
           </div>
+
+          {/* ── Admin Login Toggle ── */}
+          <div className="w-full mt-4 animate-fade-in-up" style={{ animationDelay: '0.8s', animationFillMode: 'both' }}>
+            <button
+              onClick={() => setShowAdminLogin(!showAdminLogin)}
+              className="w-full flex items-center justify-center gap-2 py-3 text-white/50 hover:text-white/80 transition-colors duration-200"
+              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span className="text-sm font-medium">دخول لوحة التحكم</span>
+              {showAdminLogin ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {/* ── Admin Login Form (collapsible) ── */}
+          {showAdminLogin && (
+            <div
+              className="w-full rounded-2xl p-5 sm:p-6 mt-2 animate-fade-in"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.07)',
+                WebkitBackdropFilter: 'blur(12px)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
+            >
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold flex items-center gap-2" style={{ color: '#d4af37' }}>
+                    <User className="w-4 h-4" />
+                    اسم المستخدم
+                  </Label>
+                  <Input
+                    placeholder="أدخل اسم المستخدم"
+                    value={username}
+                    onChange={(e) => { setUsername(e.target.value); setLoginError('') }}
+                    className="h-11 text-right bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-yellow-400 focus:ring-yellow-400/20"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                    enterKeyHint="next"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold flex items-center gap-2" style={{ color: '#d4af37' }}>
+                    <Lock className="w-4 h-4" />
+                    كلمة المرور
+                  </Label>
+                  <Input
+                    type="password"
+                    placeholder="أدخل كلمة المرور"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setLoginError('') }}
+                    className="h-11 text-right bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-yellow-400 focus:ring-yellow-400/20"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                    enterKeyHint="go"
+                  />
+                </div>
+                {/* Error message display */}
+                {loginError && (
+                  <div
+                    className="flex items-center gap-2 p-3 rounded-lg text-sm text-white"
+                    style={{ backgroundColor: 'rgba(220,38,38,0.3)', border: '1px solid rgba(220,38,38,0.4)' }}
+                  >
+                    <X className="w-4 h-4 flex-shrink-0" />
+                    <span>{loginError}</span>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full h-12 text-lg font-bold shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-2xl"
+                  style={{
+                    background: loginLoading
+                      ? 'linear-gradient(135deg, #999, #bbb, #999)'
+                      : 'linear-gradient(135deg, #d4af37, #f4d03f, #d4af37)',
+                    backgroundSize: '200% 200%',
+                    color: '#0d3d2e',
+                    borderRadius: '0.8rem',
+                  }}
+                  disabled={loginLoading}
+                >
+                  {loginLoading ? (
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                      جاري تسجيل الدخول...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      تسجيل الدخول
+                    </span>
+                  )}
+                </Button>
+              </form>
+            </div>
+          )}
 
           {/* Bottom branding */}
           <div className="mt-6 text-center animate-fade-in" style={{ animationDelay: '1s', animationFillMode: 'both' }}>

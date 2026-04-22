@@ -5,6 +5,9 @@ const config: CapacitorConfig = {
   appName: 'مركز الشفاء',
   webDir: 'out',
   server: {
+    // Load app from live server — UI changes on server are reflected immediately
+    // without needing Google Play updates (one-time APK update required)
+    url: 'https://abualzahracom.online',
     // Allow navigation to external URLs (needed for media, OAuth, etc.)
     allowNavigation: [
       'https://ntshduvxdehefxmchusw.supabase.co',
