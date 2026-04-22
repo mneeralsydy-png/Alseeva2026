@@ -7,9 +7,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   sbDirectGet,
-  getTelegramFileUrl,
   isTelegramRef,
 } from '@/lib/supabase-direct'
+import { apiUrl } from '@/lib/api'
 
 const CACHE_KEY = 'alshifa_public_data'
 const CACHE_TIME_KEY = 'alshifa_cache_time'
@@ -31,8 +31,8 @@ function saveToCache(data: any) {
 }
 
 // Resolve Telegram file references in media data
-// Converts tg:file_id to actual Telegram CDN URLs
-// Resolves in batch with a concurrency limit to avoid overwhelming the API
+// Converts tg:file_id to server proxy URL (no BOT_TOKEN needed in client!)
+// Uses /api/telegram/image-proxy endpoint on the live server
 async function resolveMediaUrls(media: any[]): Promise<any[]> {
   const CONCURRENCY = 5
   const results = new Array(media.length)
@@ -45,19 +45,10 @@ async function resolveMediaUrls(media: any[]): Promise<any[]> {
       if (isTelegramRef(img.url)) {
         try {
           const fileId = img.url.replace('tg:', '')
-          // Check sessionStorage cache first for faster resolution
-          let directUrl: string | null = null
-          try {
-            directUrl = sessionStorage.getItem(`tg_url_${fileId}`) || null
-          } catch { /* ignore */ }
-          if (!directUrl) {
-            directUrl = await getTelegramFileUrl(fileId)
-          }
-          if (directUrl) {
-            // Cache in sessionStorage
-            try { sessionStorage.setItem(`tg_url_${fileId}`, directUrl) } catch { /* ignore */ }
-          }
-          results[i] = { ...img, url: directUrl || img.url, resolved: !!directUrl }
+          // Use server proxy to resolve Telegram file — works from APK without BOT_TOKEN
+          // The server has the BOT_TOKEN and proxies the image through /api/telegram/image-proxy
+          const proxyUrl = apiUrl(`/api/telegram/image-proxy?file_id=${encodeURIComponent(fileId)}`)
+          results[i] = { ...img, url: proxyUrl, resolved: true }
         } catch {
           results[i] = { ...img, url: img.url, resolved: false }
         }
