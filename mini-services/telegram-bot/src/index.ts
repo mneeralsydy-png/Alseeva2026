@@ -13,6 +13,12 @@
 
 import { Bot, InlineKeyboard } from 'grammy'
 
+// ─── Logger (file-based, PM2 doesn't capture bun stdout) ──────────────────────
+import { log } from './utils/logger.js'
+const origConsole = { log: console.log, error: console.error }
+console.log = (...args: any[]) => { origConsole.log(...args); log(args.join(' ')) }
+console.error = (...args: any[]) => { origConsole.error(...args); log('[ERR] ' + args.join(' ')) }
+
 // ─── Services ─────────────────────────────────────────────────────────────────
 import { sbGet, sbPost, sbPatch, sbDelete } from './services/supabase.js'
 import {
@@ -487,6 +493,7 @@ bot.on('message:photo', async (ctx) => {
 bot.on('callback_query:data', async (ctx) => {
   const d = ctx.callbackQuery.data
   const c = chatId(ctx)
+  console.log(`[CB] data="${d}" chatId=${c}`)
   if (!c) { try { await ctx.answerCallbackQuery() } catch {} return }
   try { await ctx.answerCallbackQuery() } catch {}
 
@@ -763,8 +770,11 @@ bot.on('callback_query:data', async (ctx) => {
     }
 
     await ed(ctx, '❌ أمر غير معروف', mainKeyboard())
-  } catch (e) {
-    console.error('[CB Error]', e)
+  } catch (e: any) {
+    console.error('[CB Error]', e?.message || e)
+    try {
+      await ctx.answerCallbackQuery({ text: '❌ حدث خطأ: ' + String(e?.message || e).slice(0, 80), show_alert: true })
+    } catch {}
     try { await ctx.reply('❌ حدث خطأ، حاول مرة أخرى') } catch {}
   }
 })

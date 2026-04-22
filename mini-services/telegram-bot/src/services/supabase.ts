@@ -29,13 +29,20 @@ export function now(): string {
 // ─── GET ─────────────────────────────────────────────────────────────────────
 export async function sbGet(table: string, query?: string): Promise<any[]> {
   const url = `${SUPABASE_URL}/rest/v1/${table}${query ? '?' + query : ''}`
-  const res = await fetch(url, { headers: headers() })
-  if (!res.ok) {
-    const text = await res.text()
-    console.error(`[sbGet] ${table}: ${res.status} — ${text.slice(0, 200)}`)
+  try {
+    const res = await fetch(url, { headers: headers() })
+    if (!res.ok) {
+      const text = await res.text()
+      console.error(`[sbGet] ${table}: ${res.status} — ${text.slice(0, 200)}`)
+      return []
+    }
+    const data = await res.json()
+    console.log(`[sbGet] ${table}: ${data.length} rows`)
+    return data
+  } catch (e: any) {
+    console.error(`[sbGet] ${table} FETCH ERROR:`, e?.message || e)
     return []
   }
-  return res.json()
 }
 
 // ─── POST ────────────────────────────────────────────────────────────────────
