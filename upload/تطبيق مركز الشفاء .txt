@@ -1,0 +1,1840 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم - مركز الشفاء | Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK (Without Module) -->
+    <script src="https://www.gstatic.com/firebasejs/12.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.11.0/firebase-storage-compat.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-green: #1a5f4a;
+            --dark-green: #0d3d2e;
+            --gold: #d4af37;
+            --light-gold: #f4d03f;
+            --white: #ffffff;
+            --light-bg: #f8f9fa;
+            --gray: #6c757d;
+            --border-color: #dee2e6;
+            --danger: #dc3545;
+            --success: #28a745;
+            --warning: #ffc107;
+            --info: #17a2b8;
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: var(--light-bg);
+            color: #333;
+            line-height: 1.6;
+            direction: rtl;
+        }
+
+        /* ===== LOGIN PAGE ===== */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--primary-green), var(--dark-green));
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-container::before {
+            content: '';
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            background: rgba(212, 175, 55, 0.08);
+            border-radius: 50%;
+            top: -120px;
+            right: -120px;
+        }
+
+        .login-container::after {
+            content: '';
+            position: absolute;
+            width: 450px;
+            height: 450px;
+            background: rgba(212, 175, 55, 0.06);
+            border-radius: 50%;
+            bottom: -180px;
+            left: -180px;
+        }
+
+        .login-box {
+            background: var(--white);
+            padding: 55px 42px;
+            border-radius: 24px;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.3);
+            max-width: 480px;
+            width: 92%;
+            z-index: 10;
+            text-align: center;
+            animation: fadeInUp 0.8s ease;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+            20%, 40%, 60%, 80% { transform: translateX(10px); }
+        }
+
+        .login-logo {
+            font-size: 85px;
+            margin-bottom: 22px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .login-title {
+            font-family: 'Amiri', serif;
+            font-size: 36px;
+            color: var(--primary-green);
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+
+        .login-subtitle {
+            color: var(--gray);
+            margin-bottom: 38px;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+            text-align: right;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 9px;
+            font-weight: 700;
+            color: var(--primary-green);
+            font-size: 15px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2.5px solid var(--border-color);
+            border-radius: 13px;
+            font-size: 17px;
+            font-family: 'Cairo', sans-serif;
+            transition: all 0.3s ease;
+            direction: ltr;
+            text-align: left;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 5px rgba(212, 175, 55, 0.15);
+        }
+
+        .form-input::placeholder {
+            direction: rtl;
+            text-align: right;
+        }
+
+        .btn {
+            padding: 16px 35px;
+            border-radius: 13px;
+            font-size: 18px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            font-family: 'Cairo', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gold), var(--light-gold));
+            color: var(--dark-green);
+            box-shadow: 0 7px 28px rgba(212, 175, 55, 0.45);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 38px rgba(212, 175, 55, 0.65);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        /* ===== MAIN APP (HIDDEN BY DEFAULT) ===== */
+        .main-app {
+            display: none;
+        }
+
+        /* ===== NAVBAR ===== */
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-green), var(--dark-green));
+            padding: 16px 32px;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .navbar-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            color: var(--gold);
+            font-size: 23px;
+            font-weight: 800;
+            font-family: 'Amiri', serif;
+        }
+
+        .nav-menu {
+            display: flex;
+            list-style: none;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .nav-item a {
+            color: var(--white);
+            text-decoration: none;
+            padding: 11px 18px;
+            border-radius: 9px;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            font-size: 14px;
+            display: block;
+        }
+
+        .nav-item a:hover,
+        .nav-item a.active {
+            background: rgba(212, 175, 55, 0.28);
+            color: var(--gold);
+        }
+
+        .logout-btn {
+            background: rgba(220, 53, 69, 0.25);
+            color: #fff;
+            border: 2.5px solid rgba(220, 53, 69, 0.55);
+            padding: 11px 22px;
+            border-radius: 11px;
+            cursor: pointer;
+            font-family: 'Cairo', sans-serif;
+            font-weight: 800;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logout-btn:hover {
+            background: var(--danger);
+            transform: scale(1.05);
+        }
+
+        /* ===== CONTENT SECTIONS ===== */
+        .content {
+            margin-top: 85px;
+            padding: 32px;
+            min-height: calc(100vh - 85px);
+        }
+
+        .section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-title {
+            font-family: 'Amiri', serif;
+            font-size: 38px;
+            color: var(--primary-green);
+            margin-bottom: 28px;
+            padding-bottom: 16px;
+            border-bottom: 3.5px solid var(--gold);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        /* ===== DASHBOARD STATS ===== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 22px;
+            margin-bottom: 38px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary-green), var(--dark-green));
+            color: var(--white);
+            padding: 32px;
+            border-radius: 18px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
+            transition: all 0.35s ease;
+            cursor: pointer;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 18px 45px rgba(26, 95, 74, 0.35);
+        }
+
+        .stat-icon {
+            font-size: 54px;
+            margin-bottom: 14px;
+        }
+
+        .stat-number {
+            font-size: 42px;
+            font-weight: 900;
+            color: var(--gold);
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.25);
+        }
+
+        .stat-label {
+            font-size: 15px;
+            opacity: 0.95;
+            font-weight: 600;
+        }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: var(--white);
+            border-radius: 18px;
+            padding: 30px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.09);
+            margin-bottom: 30px;
+            border: 1.5px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.13);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 18px;
+            border-bottom: 2.5px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 23px;
+            color: var(--primary-green);
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* ===== TABLES ===== */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 14px;
+            border: 2.5px solid var(--border-color);
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--white);
+        }
+
+        thead {
+            background: linear-gradient(135deg, var(--primary-green), var(--dark-green));
+            color: var(--white);
+        }
+
+        th {
+            padding: 17px 20px;
+            text-align: right;
+            font-weight: 800;
+            font-size: 14px;
+            letter-spacing: 0.4px;
+        }
+
+        td {
+            padding: 15px 20px;
+            border-bottom: 1.5px solid var(--border-color);
+            font-size: 14.5px;
+        }
+
+        tbody tr {
+            transition: all 0.25s ease;
+        }
+
+        tbody tr:hover {
+            background: rgba(26, 95, 74, 0.04);
+            transform: scale(1.008);
+        }
+
+        /* ===== ACTION BUTTONS ===== */
+        .action-btn {
+            padding: 9px 16px;
+            border-radius: 9px;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            border: none;
+            margin: 0 4px;
+            font-family: 'Cairo', sans-serif;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-edit {
+            background: var(--info);
+            color: white;
+        }
+
+        .btn-delete {
+            background: var(--danger);
+            color: white;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.12) translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.25);
+        }
+
+        /* ===== BADGES ===== */
+        .badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 22px;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .badge-success { background: var(--success); color: white; }
+        .badge-warning { background: var(--warning); color: #212529; }
+        .badge-danger { background: var(--danger); color: white; }
+        .badge-info { background: var(--info); color: white; }
+
+        /* ===== FORM SELECT & TEXTAREA ===== */
+        .form-select {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2.5px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: 'Cairo', sans-serif;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 5px rgba(212, 175, 55, 0.15);
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2.5px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: 'Cairo', sans-serif;
+            resize: vertical;
+            min-height: 95px;
+            transition: all 0.3s ease;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 5px rgba(212, 175, 55, 0.15);
+        }
+
+        /* ===== ALERTS ===== */
+        .alert {
+            padding: 18px 24px;
+            border-radius: 14px;
+            margin-bottom: 24px;
+            display: none;
+            align-items: center;
+            gap: 14px;
+            font-weight: 700;
+            font-size: 16px;
+            animation: slideIn 0.45s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(35px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #d4edda, #c3e6cb);
+            color: #155724;
+            border: 2.5px solid #28a745;
+        }
+
+        .alert-error {
+            background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+            color: #721c24;
+            border: 2.5px solid #dc3545;
+        }
+
+        .alert.show {
+            display: flex;
+        }
+
+        /* ===== MEDIA GALLERY ===== */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .gallery-album {
+            background: var(--white);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.11);
+            border: 2px solid var(--border-color);
+            transition: all 0.4s ease;
+        }
+
+        .gallery-album:hover {
+            transform: translateY(-10px) scale(1.03);
+            border-color: var(--gold);
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
+        }
+
+        .album-header {
+            background: linear-gradient(135deg, var(--primary-green), var(--dark-green));
+            color: var(--white);
+            padding: 22px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .album-icon {
+            font-size: 38px;
+        }
+
+        .album-body {
+            padding: 22px;
+        }
+
+        .image-preview {
+            width: 100%;
+            height: 230px;
+            object-fit: cover;
+            border-radius: 12px;
+            margin-bottom: 14px;
+            transition: transform 0.35s ease;
+        }
+
+        .image-preview:hover {
+            transform: scale(1.06);
+        }
+
+        /* ===== TABS ===== */
+        .tabs {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 13px 26px;
+            background: var(--white);
+            border: 2.5px solid var(--border-color);
+            border-radius: 11px;
+            cursor: pointer;
+            font-family: 'Cairo', sans-serif;
+            font-weight: 800;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active,
+        .tab-btn:hover {
+            background: var(--primary-green);
+            color: var(--white);
+            border-color: var(--primary-green);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 18px rgba(26, 95, 74, 0.35);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        /* ===== USER INFO ===== */
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            color: var(--gold);
+            font-weight: 700;
+            font-size: 15px;
+        }
+
+        .user-avatar {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--gold), var(--light-gold));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: var(--dark-green);
+            font-weight: 900;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* ===== LOADING SPINNER ===== */
+        .loading-spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3.5px solid rgba(255,255,255,.35);
+            border-radius: 50%;
+            border-top-color: var(--gold);
+            animation: spin 0.75s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 992px) {
+            .nav-menu { display: none; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .section-title { font-size: 30px; }
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .content { padding: 22px 16px; }
+            .login-box { padding: 38px 28px; }
+            .login-title { font-size: 29px; }
+            .user-info { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== LOGIN PAGE ===== -->
+    <div id="loginPage" class="login-container">
+        <div class="login-box" id="loginBox">
+            <div class="login-logo">🕌</div>
+            <h1 class="login-title">مركز الشفاء</h1>
+            <p class="login-subtitle">لوحة التحكم الإدارية المتكاملة<br>نظام إدارة مراكز تحفيظ القرآن الكريم</p>
+            
+            <div id="loginError" class="alert alert-error"></div>
+            <div id="loginSuccess" class="alert alert-success"></div>
+            
+            <form id="loginForm" onsubmit="return handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label">👤 اسم المستخدم</label>
+                    <input 
+                        type="text" 
+                        id="loginUsername" 
+                        class="form-input" 
+                        placeholder="أدخل اسم المستخدم"
+                        autocomplete="username"
+                        required
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">🔒 كلمة المرور</label>
+                    <input 
+                        type="password" 
+                        id="loginPassword" 
+                        class="form-input" 
+                        placeholder="أدخل كلمة المرور"
+                        autocomplete="current-password"
+                        required
+                    >
+                </div>
+
+                <div style="margin-bottom: 28px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; color: var(--gray);">
+                        <input type="checkbox" id="rememberMe" style="width: 19px; height: 19px; cursor: pointer;">
+                        <span>تذكرني (ابقِ مسجلاً)</span>
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    <span>🔑</span> تسجيل الدخول
+                </button>
+            </form>
+            
+            <div style="margin-top: 32px; padding-top: 28px; border-top: 2.5px solid var(--border-color);">
+                <p style="font-size: 13px; color: var(--gray); line-height: 1.9;">
+                    📌 <strong>تعليمات:</strong><br>
+                    • تأكد من كتابة البيانات بشكل صحيح<br>
+                    • لا تشارك بيانات الدخول مع أحد<br>
+                    • استخدم متصفح حديث ومحدث
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MAIN APPLICATION ===== -->
+    <div id="mainApp" class="main-app">
+        
+        <!-- NAVBAR -->
+        <nav class="navbar">
+            <div class="navbar-container">
+                <div class="logo">
+                    <span>📖</span>
+                    <span>مركز الشفاء | لوحة التحكم</span>
+                </div>
+                
+                <ul class="nav-menu">
+                    <li class="nav-item"><a href="#" onclick="showSection('dashboard')" class="active">📊 لوحة التحكم</a></li>
+                    <li class="nav-item"><a href="#" onclick="showSection('halakat')">📚 الحلقات</a></li>
+                    <li class="nav-item"><a href="#" onclick="showSection('students')">👥 الطلاب</a></li>
+                    <li class="nav-item"><a href="#" onclick="showSection('attendance')">✅ الحضور</a></li>
+                    <li class="nav-item"><a href="#" onclick="showSection('media')">🖼️ الوسائط</a></li>
+                    <li class="nav-item"><a href="#" onclick="showSection('activities')">🎉 الأنشطة</a></li>
+                </ul>
+                
+                <div style="display: flex; align-items: center; gap: 18px;">
+                    <div class="user-info">
+                        <div class="user-avatar">👨‍💼</div>
+                        <span>مرحباً، <strong id="displayUsername">Admin</strong></span>
+                    </div>
+                    <button class="logout-btn" onclick="handleLogout()">🚪 خروج</button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- CONTENT -->
+        <div class="content">
+            
+            <!-- DASHBOARD SECTION -->
+            <section id="dashboard" class="section active">
+                <h2 class="section-title">📊 لوحة التحكم الرئيسية</h2>
+                
+                <div class="card" style="background: linear-gradient(135deg, rgba(26, 95, 74, 0.04), rgba(212, 175, 55, 0.1)); border: 2.5px solid rgba(212, 175, 55, 0.35);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 22px;">
+                        <div>
+                            <h3 style="color: var(--primary-green); font-size: 26px; margin-bottom: 10px;">👋 مرحباً بك في نظام مركز الشفاء!</h3>
+                            <p style="color: var(--gray); font-size: 16px;">آخر تسجيل دخول: <strong id="lastLogin">الآن</strong></p>
+                        </div>
+                        <div style="font-size: 80px;">🕌</div>
+                    </div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card" onclick="showSection('halakat')">
+                        <div class="stat-icon">📚</div>
+                        <div class="stat-number" id="totalHalakat">0</div>
+                        <div class="stat-label">إجمالي الحلقات</div>
+                    </div>
+                    <div class="stat-card" onclick="showSection('students')">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-number" id="totalStudents">0</div>
+                        <div class="stat-label">عدد الطلاب</div>
+                    </div>
+                    <div class="stat-card" onclick="showSection('attendance')">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-number" id="todayAttendance">0%</div>
+                        <div class="stat-label">الحضور اليومي</div>
+                    </div>
+                    <div class="stat-card" onclick="showSection('media')">
+                        <div class="stat-icon">🖼️</div>
+                        <div class="stat-number" id="totalImages">0</div>
+                        <div class="stat-label">الصور المرفوعة</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">⚡ إجراءات سريعة</h3>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 18px;">
+                        <button class="btn btn-primary" onclick="showSection('halakat')">➕ إضافة حلقة</button>
+                        <button class="btn btn-primary" onclick="showSection('students')">➕ إضافة طالب</button>
+                        <button class="btn btn-secondary" style="background:var(--gray)" onclick="showSection('attendance')">✅ تسجيل حضور</button>
+                        <button class="btn btn-secondary" style="background:var(--gray)" onclick="showSection('media')">📸 رفع صور</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">🔄 آخر التحديثات</h3>
+                        <span class="badge badge-success">⚡ مباشر</span>
+                    </div>
+                    <div id="recentUpdates">
+                        <p style="color: var(--gray); text-align: center; padding: 30px; font-size: 16px;">⏳ جاري التحميل...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- HALAKAT SECTION -->
+            <section id="halakat" class="section">
+                <h2 class="section-title">📚 إدارة الحلقات الدراسية</h2>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">➕ إضافة حلقة جديدة</h3>
+                    </div>
+                    
+                    <div id="halakaAlert" class="alert"></div>
+                    
+                    <form onsubmit="return saveHalaka(event)">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;">
+                            <div class="form-group">
+                                <label class="form-label">اسم الحلقة *</label>
+                                <input type="text" id="halakaName" class="form-input" placeholder="مثال: حلقة الفجر" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">المعلم المسؤول *</label>
+                                <input type="text" id="halakaTeacher" class="form-input" placeholder="اسم المعلم" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">الوقت *</label>
+                                <input type="time" id="halakaTime" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">المكان *</label>
+                                <input type="text" id="halakaLocation" class="form-input" placeholder="القاعة أو المكان" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">وصف / ملاحظات</label>
+                            <textarea id="halakaDescription" class="form-textarea" placeholder="معلومات إضافية عن الحلقة..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">💾 حفظ الحلقة</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">📋 قائمة الحلقات</h3>
+                        <span class="badge badge-info" id="halakaCount">0 حلقة</span>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>اسم الحلقة</th>
+                                    <th>المعلم</th>
+                                    <th>الوقت</th>
+                                    <th>المكان</th>
+                                    <th>إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="halakatTableBody">
+                                <tr><td colspan="6" style="text-align: center; padding: 35px;">⏳ جاري تحميل البيانات...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STUDENTS SECTION -->
+            <section id="students" class="section">
+                <h2 class="section-title">👥 إدارة الطلاب</h2>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">➕ إضافة طالب جديد</h3>
+                    </div>
+                    
+                    <div id="studentAlert" class="alert"></div>
+                    
+                    <form onsubmit="return saveStudent(event)">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;">
+                            <div class="form-group">
+                                <label class="form-label">اسم الطالب *</label>
+                                <input type="text" id="studentName" class="form-input" placeholder="الاسم الكامل" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">العمر</label>
+                                <input type="number" id="studentAge" class="form-input" placeholder="12" min="4" max="100">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">ولي الأمر *</label>
+                                <input type="text" id="parentName" class="form-input" placeholder="اسم ولي الأمر" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">رقم هاتف ولي الأمر *</label>
+                                <input type="tel" id="parentPhone" class="form-input" placeholder="05XXXXXXXX" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">المستوى</label>
+                                <select id="studentLevel" class="form-select">
+                                    <option value="مبتدئ">مبتدئ</option>
+                                    <option value="متوسط">متوسط</option>
+                                    <option value="متقدم">متقدم</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">الحلقة</label>
+                                <select id="studentHalaka" class="form-select">
+                                    <option value="">اختر الحلقة</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">➕ إضافة الطالب</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">📋 قائمة الطلاب</h3>
+                        <span class="badge badge-success" id="studentCount">0 طالب</span>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>الاسم</th>
+                                    <th>العمر</th>
+                                    <th>ولي الأمر</th>
+                                    <th>الهاتف</th>
+                                    <th>المستوى</th>
+                                    <th>إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentsTableBody">
+                                <tr><td colspan="7" style="text-align: center; padding: 35px;">⏳ جاري تحميل البيانات...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ATTENDANCE SECTION -->
+            <section id="attendance" class="section">
+                <h2 class="section-title">✅ نظام الحضور والغياب</h2>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">📅 تسجيل الحضور اليومي</h3>
+                    </div>
+                    
+                    <div id="attendanceAlert" class="alert"></div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; margin-bottom: 28px;">
+                        <div class="form-group">
+                            <label class="form-label">التاريخ</label>
+                            <input type="date" id="attendanceDate" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">الحلقة</label>
+                            <select id="attendanceHalaka" class="form-select">
+                                <option value="">جميع الحلقات</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>اسم الطالب</th>
+                                    <th>الحالة</th>
+                                    <th>ملاحظات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceTableBody">
+                                <tr><td colspan="4" style="text-align: center; padding: 35px;">📋 اختر الحلقة لعرض الطلاب</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div style="margin-top: 25px; text-align: left;">
+                        <button class="btn btn-primary" onclick="saveAttendance()" style="width: auto; padding: 15px 40px;">✅ حفظ الحضور</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MEDIA/GALLERY SECTION -->
+            <section id="media" class="section">
+                <h2 class="section-title">🖼️ معرض الوسائط</h2>
+                
+                <div class="card" style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(26, 95, 74, 0.06)); border: 2.5px dashed var(--gold);">
+                    <div style="text-align: center; padding: 25px;">
+                        <div style="font-size: 58px; margin-bottom: 18px;">⚡</div>
+                        <h3 style="color: var(--primary-green); font-size: 22px; margin-bottom: 12px;">تحديث فوري للصور!</h3>
+                        <p style="color: var(--gray); font-size: 16px;">كل صورة ترفعها هنا ستظهر فوراً في الموقع العام للزوار 🎉</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">📸 رفع صور جديدة</h3>
+                        <span class="badge badge-warning">Real-time</span>
+                    </div>
+                    
+                    <div id="mediaAlert" class="alert"></div>
+                    
+                    <form onsubmit="return uploadImages(event)">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 20px;">
+                            <div class="form-group">
+                                <label class="form-label">📁 اختر الألبوم *</label>
+                                <select id="albumSelect" class="form-select" required>
+                                    <option value="">اختر الألبوم...</option>
+                                    <optgroup label="📚 التعليمية">
+                                        <option value="حلقات تحفيظية">📚 صور الحلقات</option>
+                                        <option value="سرد قرآني">🎤 جلسات السرد القرآني</option>
+                                        <option value="دورات سنوية">📖 الدورات السنوية</option>
+                                    </optgroup>
+                                    <optgroup label="🏆 الفعاليات">
+                                        <option value="مسابقات سنوية">🏆 المسابقات السنوية</option>
+                                        <option value="تكريم">🎖️ فعاليات التكريم</option>
+                                        <option value="احتفالات خريجين">🎓 احتفالات الخريجين</option>
+                                        <option value="متميزين">⭐ تكريم المتميزين</option>
+                                        <option value="خريجون">👨‍🎓 صور الخريجين</option>
+                                    </optgroup>
+                                    <optgroup label="❤️ الإنسانية">
+                                        <option value="كسوة ومصاحف">👕 توزيع الكسوة والمصاحف</option>
+                                        <option value="تكريم معلمات">👩‍🏫 تكريم المعلمات</option>
+                                        <option value="زيارات إنسانية">❤️ زيارات المرضى والعاجزين</option>
+                                    </optgroup>
+                                    <optgroup label="📊 الإدارية">
+                                        <option value="تقارير شهرية">📊 التقارير الشهرية</option>
+                                        <option value="توثيق إداري">💼 التوثيق الإداري</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">📷 اختر الصور *</label>
+                                <input type="file" id="imageFiles" class="form-input" multiple accept="image/*" required>
+                                <small style="color: var(--gray); margin-top: 8px; display: block;">يمكن اختيار عدة صور دفعة واحدة</small>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">📝 وصف الصور (اختياري)</label>
+                            <textarea id="imageDescription" class="form-textarea" placeholder="وصف مختصر للصور..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="uploadBtn">☁️ رفع الصور إلى Firebase</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">🖼️ الصور المرفوعة حديثاً</h3>
+                        <span class="badge badge-info" id="imagesCount">0 صورة</span>
+                    </div>
+                    <div id="uploadedImagesGrid" class="gallery-grid">
+                        <p style="color: var(--gray); text-align: center; width: 100%; padding: 45px; font-size: 17px;">
+                            📭 لم يتم رفع صور بعد<br>
+                            <small style="opacity: 0.75;">ابدأ برفع الصور من النموذج أعلاه</small>
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ACTIVITIES SECTION -->
+            <section id="activities" class="section">
+                <h2 class="section-title">🎉 الأنشطة والمسابقات</h2>
+                
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="switchTab('activitiesTab', this)">🎉 الأنشطة</button>
+                    <button class="tab-btn" onclick="switchTab('competitionsTab', this)">🏆 المسابقات</button>
+                </div>
+
+                <div id="activitiesTab" class="tab-content active">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">➕ إضافة نشاط جديد</h3>
+                        </div>
+                        
+                        <div id="activityAlert" class="alert"></div>
+                        
+                        <form onsubmit="return saveActivity(event)">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;">
+                                <div class="form-group">
+                                    <label class="form-label">عنوان النشاط *</label>
+                                    <input type="text" id="activityTitle" class="form-input" placeholder="عنوان النشاط" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">نوع النشاط</label>
+                                    <select id="activityType" class="form-select">
+                                        <option>🎤 محاضرة</option>
+                                        <option>🚌 رحلة</option>
+                                        <option>📚 دورة تدريبية</option>
+                                        <option>🎊 احتفال</option>
+                                        <option>❤️ نشاط خيري</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">التاريخ</label>
+                                    <input type="date" id="activityDate" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">الوقت</label>
+                                    <input type="time" id="activityTime" class="form-input">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">الوصف والتفاصيل</label>
+                                <textarea id="activityDescription" class="form-textarea" placeholder="وصف تفصيلي للنشاط..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">➕ إضافة النشاط</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="competitionsTab" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">🏆 إضافة مسابقة جديدة</h3>
+                        </div>
+                        
+                        <div id="competitionAlert" class="alert"></div>
+                        
+                        <form onsubmit="return saveCompetition(event)">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;">
+                                <div class="form-group">
+                                    <label class="form-label">عنوان المسابقة *</label>
+                                    <input type="text" id="competitionTitle" class="form-input" placeholder="عنوان المسابقة" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">نوع المسابقة</label>
+                                    <select id="competitionType" class="form-select">
+                                        <option>📖 قرآنية</option>
+                                        <option>🔬 علمية</option>
+                                        <option>🎭 ثقافية</option>
+                                        <option>🎨 فنية</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">تاريخ المسابقة</label>
+                                    <input type="date" id="competitionDate" class="form-input">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">وصف وقواعد المسابقة</label>
+                                <textarea id="competitionDescription" class="form-textarea" placeholder="وصف وقواعد المسابقة..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">🏆 إنشاء المسابقة</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- ===== JAVASCRIPT ===== -->
+    <script>
+        // ============================================
+        // FIREBASE INITIALIZATION
+        // ============================================
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDZzUBK8FvDCAONiWL-kchH4MU4sttNRF0",
+            authDomain: "alshifa-center.firebaseapp.com",
+            projectId: "alshifa-center",
+            storageBucket: "alshifa-center.firebasestorage.app",
+            messagingSenderId: "587663923605",
+            appId "1:587663923605:web:f15201354ea054dc9b7e9c"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        // ============================================
+        // AUTHENTICATION CREDENTIALS
+        // ============================================
+        
+        const ADMIN_USERNAME = 'ameen711';
+        const ADMIN_PASSWORD = '771772773';
+
+        // ============================================
+        // PAGE LOAD - CHECK SESSION
+        // ============================================
+        
+        window.onload = function() {
+            checkExistingSession();
+            setTodayDates();
+            initAttendanceListener();
+            loadAllData();
+        };
+
+        function checkExistingSession() {
+            const session = localStorage.getItem('adminSession') || sessionStorage.getItem('adminSession');
+            
+            if (session) {
+                try {
+                    const data = JSON.parse(session);
+                    showMainApp(data.username);
+                    
+                    if (data.loginTime) {
+                        document.getElementById('lastLogin').textContent = new Date(data.loginTime).toLocaleString('ar-SA');
+                    }
+                } catch (e) {
+                    clearSession();
+                }
+            }
+        }
+
+        function setTodayDates() {
+            const today = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('attendanceDate');
+            if (dateInput) dateInput.value = today;
+        }
+
+        // ============================================
+        // LOGIN HANDLER
+        // ============================================
+        
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+            const loginBtn = document.getElementById('loginBtn');
+            const loginBox = document.getElementById('loginBox');
+
+            // Disable button & show loading
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<span class="loading-spinner"></span> جاري التحقق...';
+
+            // Simulate small delay for UX
+            setTimeout(() => {
+                if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+                    // SUCCESS!
+                    showAlert('loginSuccess', '✅ تم تسجيل الدخول بنجاح! جاري التحويل...', 'success');
+
+                    // Save session
+                    const sessionData = {
+                        username: username,
+                        loginTime: new Date().toISOString(),
+                        rememberMe: rememberMe
+                    };
+
+                    try {
+                        if (rememberMe) {
+                            localStorage.setItem('adminSession', JSON.stringify(sessionData));
+                        } else {
+                            sessionStorage.setItem('adminSession', JSON.stringify(sessionData));
+                        }
+
+                        // Show main app after delay
+                        setTimeout(() => {
+                            showMainApp(username);
+                        }, 1000);
+
+                    } catch (e) {
+                        console.error('Session error:', e);
+                        showMainApp(username);
+                    }
+
+                } else {
+                    // FAILED!
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = '<span>🔑</span> تسجيل الدخول';
+                    showAlert('loginError', '❌ اسم المستخدم أو كلمة المرور غير صحيحة!', 'error');
+                    
+                    // Shake animation
+                    loginBox.style.animation = 'shake 0.5s ease';
+                    setTimeout(() => {
+                        loginBox.style.animation = '';
+                    }, 500);
+                }
+            }, 800);
+
+            return false;
+        }
+
+        // ============================================
+        // LOGOUT HANDLER
+        // ============================================
+        
+        function handleLogout() {
+            if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+                clearSession();
+                
+                document.getElementById('mainApp').style.display = 'none';
+                document.getElementById('loginPage').style.display = 'flex';
+                document.getElementById('loginForm').reset();
+                
+                showAlert('loginSuccess', '✅ تم تسجيل الخروج بنجاح', 'success');
+            }
+        }
+
+        function clearSession() {
+            localStorage.removeItem('adminSession');
+            sessionStorage.removeItem('adminSession');
+        }
+
+        // ============================================
+        // SHOW MAIN APPLICATION
+        // ============================================
+        
+        function showMainApp(username) {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            document.getElementById('displayUsername').textContent = username || 'Admin';
+        }
+
+        // ============================================
+        // SHOW ALERT
+        // ============================================
+        
+        function showAlert(elementId, message, type) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            
+            el.innerHTML = message;
+            el.className = `alert alert-${type} show`;
+            
+            setTimeout(() => {
+                el.classList.remove('show');
+            }, 5000);
+        }
+
+        // ============================================
+        // SECTION NAVIGATION
+        // ============================================
+        
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+            
+            document.querySelectorAll('.nav-item a').forEach(link => link.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+        }
+
+        // ============================================
+        // TAB SWITCHING
+        // ============================================
+        
+        function switchTab(tabId, btnElement) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            btnElement.classList.add('active');
+        }
+
+        // ============================================
+        // LOAD ALL DATA WITH REAL-TIME LISTENERS
+        // ============================================
+        
+        function loadAllData() {
+            loadDashboardStats();
+            loadHalakat();
+            loadStudents();
+            loadMedia();
+        }
+
+        function loadDashboardStats() {
+            // Halakat count
+            db.collection('halakat').onSnapshot(snapshot => {
+                document.getElementById('totalHalakat').textContent = snapshot.size;
+            });
+
+            // Students count
+            db.collection('students').onSnapshot(snapshot => {
+                document.getElementById('totalStudents').textContent = snapshot.size;
+                document.getElementById('studentCount').textContent = `${snapshot.size} طالب`;
+            });
+
+            // Images count
+            db.collection('media').onSnapshot(snapshot => {
+                document.getElementById('totalImages').textContent = snapshot.size;
+                document.getElementById('imagesCount').textContent = `${snapshot.size} صورة`;
+            });
+
+            // Recent updates
+            db.collection('media')
+                .orderBy('uploadedAt', 'desc')
+                .limit(5)
+                .onSnapshot(snapshot => {
+                    const div = document.getElementById('recentUpdates');
+                    
+                    if (snapshot.empty) {
+                        div.innerHTML = `
+                            <p style="color: var(--gray); text-align: center; padding: 30px; font-size: 16px;">
+                                📭 لا توجد تحديثات بعد<br>
+                                <small style="opacity: 0.75;">ابدأ بإضافة بيانات من الأقسام المختلفة</small>
+                            </p>`;
+                        return;
+                    }
+
+                    let html = '';
+                    snapshot.forEach(doc => {
+                        const d = doc.data();
+                        html += `
+                            <div style="padding: 16px; background: linear-gradient(135deg, rgba(26,95,74,0.04), rgba(212,175,55,0.07)); 
+                                        border-radius: 12px; margin-bottom: 14px; 
+                                        display: flex; align-items: center; gap: 16px; 
+                                        border-right: 4px solid var(--gold);">
+                                <span style="font-size: 30px;">🖼️</span>
+                                <div style="flex: 1;">
+                                    <strong style="color: var(--primary-green);">${d.album}</strong><br>
+                                    <small style="color: var(--gray);">${getTimeAgo(d.uploadedAt?.seconds)}</small>
+                                </div>
+                            </div>`;
+                    });
+                    div.innerHTML = html;
+                });
+        }
+
+        // ============================================
+        // HALAKAT (STUDY CIRCLES)
+        // ============================================
+        
+        function loadHalakat() {
+            db.collection('halakat')
+                .orderBy('createdAt', 'desc')
+                .onSnapshot(snapshot => {
+                    const tbody = document.getElementById('halakatTableBody');
+                    const studentSelect = document.getElementById('studentHalaka');
+                    const attendanceSelect = document.getElementById('attendanceHalaka');
+                    
+                    if (snapshot.empty) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:35px;">📭 لا توجد حلقات بعد</td></tr>';
+                        return;
+                    }
+
+                    let tableHtml = '';
+                    let studentOptions = '<option value="">اختر الحلقة</option>';
+                    let attendanceOptions = '<option value="">جميع الحلقات</option>';
+
+                    snapshot.forEach((doc, i) => {
+                        const d = doc.data();
+                        tableHtml += `
+                            <tr>
+                                <td><strong>${i+1}</strong></td>
+                                <td><strong>${d.name}</strong></td>
+                                <td>${d.teacher}</td>
+                                <td>${d.time}</td>
+                                <td>${d.location}</td>
+                                <td>
+                                    <button class="action-btn btn-delete" onclick="deleteDoc('halakat','${doc.id}','${d.name}')">🗑️</button>
+                                </td>
+                            </tr>`;
+                        studentOptions += `<option value="${doc.id}">${d.name}</option>`;
+                        attendanceOptions += `<option value="${doc.id}">${d.name}</option>`;
+                    });
+
+                    tbody.innerHTML = tableHtml;
+                    if (studentSelect) studentSelect.innerHTML = studentOptions;
+                    if (attendanceSelect) attendanceSelect.innerHTML = attendanceOptions;
+                    document.getElementById('halakaCount').textContent = `${snapshot.size} حلقة`;
+                });
+        }
+
+        function saveHalaka(event) {
+            event.preventDefault();
+
+            const data = {
+                name: document.getElementById('halakaName').value,
+                teacher: document.getElementById('halakaTeacher').value,
+                time: document.getElementById('halakaTime').value,
+                location: document.getElementById('halakaLocation').value,
+                description: document.getElementById('halakaDescription').value,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            db.collection('halakat').add(data)
+                .then(() => {
+                    showAlert('halakaAlert', '✅ تمت إضافة الحلقة بنجاح! ⚡', 'success');
+                    event.target.reset();
+                })
+                .catch(err => {
+                    showAlert('halakaAlert', '❌ خطأ: ' + err.message, 'error');
+                });
+
+            return false;
+        }
+
+        // ============================================
+        // STUDENTS
+        // ============================================
+        
+        function loadStudents() {
+            db.collection('students')
+                .orderBy('createdAt', 'desc')
+                .onSnapshot(snapshot => {
+                    const tbody = document.getElementById('studentsTableBody');
+                    
+                    if (snapshot.empty) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:35px;">👥 لا يوجد طلاب بعد</td></tr>';
+                        return;
+                    }
+
+                    let html = '';
+                    snapshot.forEach((doc, i) => {
+                        const d = doc.data();
+                        html += `
+                            <tr>
+                                <td><strong>${i+1}</strong></td>
+                                <td><strong>${d.name}</strong></td>
+                                <td>${d.age || '-'}</td>
+                                <td>${d.parentName}</td>
+                                <td dir="ltr">${d.parentPhone}</td>
+                                <td><span class="badge ${getBadgeColor(d.level)}">${d.level||'مبتدئ'}</span></td>
+                                <td>
+                                    <button class="action-btn btn-delete" onclick="deleteDoc('students','${doc.id}','${d.name}')">🗑️</button>
+                                </td>
+                            </tr>`;
+                    });
+                    tbody.innerHTML = html;
+                });
+        }
+
+        function saveStudent(event) {
+            event.preventDefault();
+
+            const data = {
+                name: document.getElementById('studentName').value,
+                age: parseInt(document.getElementById('studentAge').value) || 0,
+                parentName: document.getElementById('parentName').value,
+                parentPhone: document.getElementById('parentPhone').value,
+                level: document.getElementById('studentLevel').value,
+                halakaId: document.getElementById('studentHalaka').value,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            db.collection('students').add(data)
+                .then(() => {
+                    showAlert('studentAlert', '✅ تمت إضافة الطالب بنجاح! 👍', 'success');
+                    event.target.reset();
+                })
+                .catch(err => {
+                    showAlert('studentAlert', '❌ خطأ: ' + err.message, 'error');
+                });
+
+            return false;
+        }
+
+        // ============================================
+        // ATTENDANCE
+        // ============================================
+        
+        function initAttendanceListener() {
+            document.getElementById('attendanceHalaka').addEventListener('change', async (e) => {
+                const halakaId = e.target.value;
+                const tbody = document.getElementById('attendanceTableBody');
+                
+                if (!halakaId) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:35px;">📋 اختر الحلقة</td></tr>';
+                    return;
+                }
+
+                const snapshot = await db.collection('students').get();
+                
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:35px;">👥 لا يوجد طلاب</td></tr>';
+                    return;
+                }
+
+                let html = '';
+                snapshot.forEach((doc, i) => {
+                    const d = doc.data();
+                    html += `
+                        <tr>
+                            <td><strong>${i+1}</strong></td>
+                            <td><strong>${d.name}</strong></td>
+                            <td>
+                                <select class="form-select" style="width:auto;" id="status_${doc.id}">
+                                    <option value="present">✅ حاضر</option>
+                                    <option value="absent">❌ غائب</option>
+                                    <option value="late">⏰ متأخر</option>
+                                    <option value="excused">📝 بعذر</option>
+                                </select>
+                            </td>
+                            <td><input type="text" class="form-input" style="width:160px;" placeholder="-" id="notes_${doc.id}"></td>
+                        </tr>`;
+                });
+                tbody.innerHTML = html;
+            });
+        }
+
+        async function saveAttendance() {
+            const date = document.getElementById('attendanceDate').value;
+            const halakaId = document.getElementById('attendanceHalaka').value;
+
+            if (!date || !halakaId) {
+                showAlert('attendanceAlert', '❌ الرجاء اختيار التاريخ والحلقة', 'error');
+                return;
+            }
+
+            try {
+                const snapshot = await db.collection('students').get();
+                let count = 0;
+
+                snapshot.forEach(doc => {
+                    const statusEl = document.getElementById(`status_${doc.id}`);
+                    const notesEl = document.getElementById(`notes_${doc.id}`);
+
+                    if (statusEl) {
+                        db.collection('attendance').add({
+                            studentId: doc.id,
+                            studentName: doc.data().name,
+                            date: date,
+                            halakaId: halakaId,
+                            status: statusEl.value,
+                            notes: notesEl?.value || '',
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        count++;
+                    }
+                });
+
+                showAlert('attendanceAlert', `✅ تم تسجيل حضور ${count} طالب بنجاح! 🎉`, 'success');
+            } catch (err) {
+                showAlert('attendanceAlert', '❌ خطأ: ' + err.message, 'error');
+            }
+        }
+
+        // ============================================
+        // MEDIA / IMAGES UPLOAD
+        // ============================================
+        
+        function loadMedia() {
+            db.collection('media')
+                .orderBy('uploadedAt', 'desc')
+                .limit(12)
+                .onSnapshot(snapshot => {
+                    const grid = document.getElementById('uploadedImagesGrid');
+                    
+                    if (snapshot.empty) {
+                        grid.innerHTML = `
+                            <p style="color:var(--gray);text-align:center;width:100%;padding:45px;font-size:17px;">
+                                📭 لم يتم رفع صور بعد<br>
+                                <small style="opacity:0.75;">ابدأ برفع الصور من النموذج أعلاه</small>
+                            </p>`;
+                        return;
+                    }
+
+                    let html = '';
+                    snapshot.forEach(doc => {
+                        const d = doc.data();
+                        html += `
+                            <div class="gallery-album">
+                                <img src="${d.imageUrl}" alt="${d.imageName}" class="image-preview" loading="lazy">
+                                <div class="album-body">
+                                    <strong style="color:var(--primary-green);font-size:16px;">${d.album}</strong><br>
+                                    <small style="color:var(--gray);font-size:14px;">${d.description||'بدون وصف'}</small><br>
+                                    <small style="color:var(--gold);font-size:13px;">${getTimeAgo(d.uploadedAt?.seconds)}</small>
+                                </div>
+                            </div>`;
+                    });
+                    grid.innerHTML = html;
+                });
+        }
+
+        function uploadImages(event) {
+            event.preventDefault();
+
+            const album = document.getElementById('albumSelect').value;
+            const files = document.getElementById('imageFiles').files;
+            const description = document.getElementById('imageDescription').value;
+            const btn = document.getElementById('uploadBtn');
+
+            if (!files.length) {
+                showAlert('mediaAlert', '❌ الرجاء اختيار صور', 'error');
+                return false;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span> جاري الرفع...';
+
+            let uploaded = 0;
+
+            Array.from(files).forEach(file => {
+                const storageRef = storage.ref(`images/${album}/${Date.now()}_${file.name}`);
+                
+                storageRef.put(file).then(snapshot => {
+                    return snapshot.ref.getDownloadURL();
+                }).then(url => {
+                    db.collection('media').add({
+                        album: album,
+                        imageUrl: url,
+                        imageName: file.name,
+                        description: description,
+                        uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    uploaded++;
+
+                    if (uploaded === files.length) {
+                        showAlert('mediaAlert', `✅ تم رفع ${files.length} صور بنجاح! 🎉`, 'success');
+                        btn.disabled = false;
+                        btn.innerHTML = '☁️ رفع الصور إلى Firebase';
+                        event.target.reset();
+                    }
+                }).catch(err => {
+                    console.error('Upload error:', err);
+                    showAlert('mediaAlert', '❌ خطأ في رفع: ' + err.message, 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '☁️ رفع الصور إلى Firebase';
+                });
+            });
+
+            return false;
+        }
+
+        // ============================================
+        // ACTIVITIES
+        // ============================================
+        
+        function saveActivity(event) {
+            event.preventDefault();
+
+            const data = {
+                title: document.getElementById('activityTitle').value,
+                type: document.getElementById('activityType').value,
+                date: document.getElementById('activityDate').value,
+                time: document.getElementById('activityTime').value,
+                description: document.getElementById('activityDescription').value,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            db.collection('activities').add(data)
+                .then(() => {
+                    showAlert('activityAlert', '✅ تمت إضافة النشاط! 🎉', 'success');
+                    event.target.reset();
+                })
+                .catch(err => {
+                    showAlert('activityAlert', '❌ خطأ: ' + err.message, 'error');
+                });
+
+            return false;
+        }
+
+        function saveCompetition(event) {
+            event.preventDefault();
+
+            const data = {
+                title: document.getElementById('competitionTitle').value,
+                type: document.getElementById('competitionType').value,
+                date: document.getElementById('competitionDate').value,
+                description: document.getElementById('competitionDescription').value,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            db.collection('competitions').add(data)
+                .then(() => {
+                    showAlert('competitionAlert', '✅ تمت إضافة المسابقة! 🏆', 'success');
+                    event.target.reset();
+                })
+                .catch(err => {
+                    showAlert('competitionAlert', '❌ خطأ: ' + err.message, 'error');
+                });
+
+            return false;
+        }
+
+        // ============================================
+        // DELETE DOCUMENT
+        // ============================================
+        
+        function deleteDoc(collection, id, name) {
+            if (confirm(`هل تريد حذف "${name}"؟`)) {
+                db.collection(collection).doc(id).delete()
+                    .then(() => alert('✅تم الحذف!'))
+                    .catch(err => alert('❌خطأ: ' + err.message));
+            }
+        }
+
+        // ============================================
+        // UTILITY FUNCTIONS
+        // ============================================
+        
+        function getBadgeColor(level) {
+            switch(level) {
+                case 'متقدم': return 'badge-success';
+                case 'متوسط': return 'badge-warning';
+                default: return 'badge-info';
+            }
+        }
+
+        function getTimeAgo(seconds) {
+            if (!seconds) return 'الآن';
+            
+            const now = Date.now() / 1000;
+            const diff = now - seconds;
+
+            if (diff < 60) return 'الآن';
+            if (diff < 3600) return `منذ ${Math.floor(diff/60)} دقيقة`;
+            if (diff < 86400) return `منذ ${Math.floor(diff/3600)} ساعة`;
+            if (diff < 604800) return `منذ ${Math.floor(diff/86400)} يوم`;
+
+            return new Date(seconds * 1000).toLocaleDateString('ar-SA');
+        }
+    </script>
+
+</body>
+</html>

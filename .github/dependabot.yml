@@ -1,0 +1,52 @@
+version: 2
+updates:
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "ci(actions)"
+      prefix-development: "ci(actions)"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # npm (Bun) dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    package-manifest: "package.json"
+    versioning-strategy: "auto"
+    commit-message:
+      prefix: "deps(npm)"
+      prefix-development: "deps(npm-dev)"
+    labels:
+      - "dependencies"
+      - "javascript"
+    ignore:
+      # Ignore major version bumps for core frameworks to prevent breaking changes
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/*"
+        update-types: ["version-update:semver-major"]
+    open-pull-requests-limit: 10
+
+  # Docker dependencies (if Dockerfile is added later)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "deps(docker)"
+    labels:
+      - "dependencies"
+      - "docker"
+    open-pull-requests-limit: 5

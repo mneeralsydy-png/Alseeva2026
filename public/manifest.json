@@ -1,0 +1,47 @@
+{
+  "name": "مركز الشفاء لتحفيظ القرآن الكريم",
+  "short_name": "مركز الشفاء",
+  "description": "نظام إدارة مراكز تحفيظ القرآن الكريم - مركز الشفاء",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d3d2e",
+  "theme_color": "#1a5f4a",
+  "dir": "rtl",
+  "lang": "ar",
+  "orientation": "portrait",
+  "scope": "/",
+  "categories": ["education", "lifestyle"],
+  "icons": [
+    {
+      "src": "/center-logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [],
+  "share_target": {
+    "action": "/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "الحلقات",
+      "short_name": "حلقات",
+      "description": "عرض الحلقات التحفيظية",
+      "url": "/?tab=halakat"
+    },
+    {
+      "name": "الطلاب",
+      "short_name": "طلاب",
+      "description": "عرض قائمة الطلاب",
+      "url": "/?tab=students"
+    }
+  ]
+}

@@ -1,0 +1,674 @@
+import { Bot, InlineKeyboard } from 'grammy'
+
+// ── Configuration ──────────────────────────────────────────
+const BOT_TOKEN = '8432772266:AAEYLFX34FiAxIqhTBS59-d06PUJORbWP6w'
+const CHANNEL_ID = '-1003778275232'
+const ADMIN_ACCOUNT_ID = 7344776596
+const SUPABASE_URL = 'https://ntshduvxdehefxmchusw.supabase.co'
+const SUPABASE_KEY = 'sb_publishable_nnhQkb5fX6SPZ7Nx8L7rcg_r-BDxd-M'
+const PORT = 3030
+
+// ── Supabase helpers ───────────────────────────────────────
+const sbHeaders = () => ({
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
+  'Content-Type': 'application/json',
+})
+
+async function sbGet(table: string, query?: string): Promise<any[]> {
+  const url = `${SUPABASE_URL}/rest/v1/${table}${query ? '?' + query : ''}`
+  const res = await fetch(url, { headers: sbHeaders() })
+  if (!res.ok) throw new Error(`Supabase GET error: ${res.status}`)
+  return res.json()
+}
+
+async function sbPost(table: string, data: Record<string, unknown>): Promise<any> {
+  const url = `${SUPABASE_URL}/rest/v1/${table}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { ...sbHeaders(), Prefer: 'return=representation' },
+    body: JSON.stringify({ ...data, id: crypto.randomUUID(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }),
+  })
+  if (!res.ok) throw new Error(`Supabase POST error: ${res.status}`)
+  const result = await res.json()
+  return result[0]
+}
+
+async function sbDelete(table: string, filter: string): Promise<void> {
+  const url = `${SUPABASE_URL}/rest/v1/${table}?${filter}`
+  const res = await fetch(url, { method: 'DELETE', headers: sbHeaders() })
+  if (!res.ok) throw new Error(`Supabase DELETE error: ${res.status}`)
+}
+
+async function sbPatch(table: string, filter: string, data: Record<string, unknown>): Promise<any> {
+  const url = `${SUPABASE_URL}/rest/v1/${table}?${filter}`
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { ...sbHeaders(), Prefer: 'return=representation' },
+    body: JSON.stringify({ ...data, updatedAt: new Date().toISOString() }),
+  })
+  if (!res.ok) throw new Error(`Supabase PATCH error: ${res.status}`)
+  const result = await res.json()
+  return result[0]
+}
+
+// ── Authorized chat IDs ────────────────────────────────────
+let authorizedChats: Set<number> = new Set([ADMIN_ACCOUNT_ID])
+
+async function loadAuthorizedChats() {
+  try {
+    const admins = await sbGet('Admin')
+    authorizedChats = new Set([ADMIN_ACCOUNT_ID])
+    for (const a of admins) {
+      if (a.telegramChatId) {
+        authorizedChats.add(parseInt(a.telegramChatId))
+      }
+    }
+    console.log(`✅ Authorized chats: ${Array.from(authorizedChats).join(', ')}`)
+  } catch (e) {
+    console.error('Failed to load authorized chats:', e)
+  }
+}
+
+// ── Create Bot ─────────────────────────────────────────────
+const bot = new Bot(BOT_TOKEN)
+bot.api.config.useBotApi = true
+
+// ── Albums ─────────────────────────────────────────────────
+const ALBUMS = [
+  'حلقات تحفيظية', 'سرد قرآني', 'دورات سنوية', 'مسابقات سنوية',
+  'تكريم', 'احتفالات خريجين', 'متميزين', 'خريجون', 'أخرى'
+]
+
+// ── Pending media (waiting for album selection) ────────────
+interface PendingMedia {
+  chatId: number
+  messageId: number
+  fileId: string
+  caption?: string
+}
+const pendingMedia: Map<number, PendingMedia> = new Map()
+
+// ── Middleware: Authorization ──────────────────────────────
+bot.use(async (ctx, next) => {
+  const chatId = ctx.chat?.id
+  if (!chatId) return next()
+
+  // Always allow commands and callbacks in private chats
+  if (ctx.chat?.type === 'private') {
+    return next()
+  }
+
+  // For groups/channels, check authorization
+  if (!authorizedChats.has(chatId) && ctx.from && !authorizedChats.has(ctx.from.id)) {
+    return next()
+  }
+
+  return next()
+})
+
+// ── /start command ─────────────────────────────────────────
+bot.command('start', async (ctx) => {
+  const keyboard = new InlineKeyboard()
+    .text('📷 رفع صورة', 'action_upload')
+    .text('📸 استيراد صور', 'action_import')
+    .row()
+    .text('📁 عرض الألبومات', 'action_albums')
+    .text('📊 إحصائيات', 'action_stats')
+    .row()
+    .text('📥 استيراد من القناة', 'action_channel_import')
+
+  await ctx.reply(
+    'مرحباً بك في بوت مركز الشفاء لتحفيظ القرآن الكريم 🕌\n\n' +
+    '🔹 يمكنك رفع الصور مباشرة من هنا\n' +
+    '🔹 ستتم مزامنتها تلقائياً مع لوحة التحكم\n' +
+    '🔹 جميع الوسائط تُحفظ في القناة مباشرة\n\n' +
+    'اختر الإجراء المطلوب:',
+    { reply_markup: keyboard }
+  )
+})
+
+// ── /code command (verify admin) ───────────────────────────
+bot.command('code', async (ctx) => {
+  if (!ctx.chat || ctx.chat.type !== 'private') return
+
+  const parts = ctx.message?.text?.split(' ')
+  if (!parts || parts.length < 2) {
+    await ctx.reply('❌ الصيغة: /code YOUR_PASSWORD')
+    return
+  }
+
+  const password = parts.slice(1).join(' ')
+
+  try {
+    const admins = await sbGet('Admin')
+    const admin = admins.find((a: any) => a.password === password)
+
+    if (admin) {
+      const chatId = ctx.chat.id
+      await sbPatch('Admin', `id=eq.${admin.id}`, { telegramChatId: chatId.toString() })
+      authorizedChats.add(chatId)
+      await loadAuthorizedChats()
+
+      await ctx.reply(
+        `✅ تم ربط حسابك بنجاح!\n\n` +
+        `مرحباً ${admin.name} 🎉\n` +
+        `الآن يمكنك رفع الصور واستخدام البوت`
+      )
+    } else {
+      await ctx.reply('❌ كود خاطئ، تأكد من كلمة المرور')
+    }
+  } catch (e) {
+    console.error('Register error:', e)
+    await ctx.reply('❌ حدث خطأ، حاول مرة أخرى')
+  }
+})
+
+// ── /stats command ─────────────────────────────────────────
+bot.command('stats', async (ctx) => {
+  try {
+    const [images, students, halakat] = await Promise.all([
+      sbGet('MediaImage'),
+      sbGet('Student'),
+      sbGet('Halaka'),
+    ])
+
+    await ctx.reply(
+      `📊 إحصائيات مركز الشفاء\n\n` +
+      `📚 الحلقات: ${halakat.length}\n` +
+      `👥 الطلاب: ${students.length}\n` +
+      `🖼️ الصور: ${images.length}\n` +
+      `📡 القناة: ${CHANNEL_ID}\n` +
+      `━━━━━━━━━━━━━━━\n` +
+      `✅ التخزين: تيلجرام (بدون قاعدة بيانات)`
+    )
+  } catch (e) {
+    console.error('Stats error:', e)
+    await ctx.reply('❌ فشل في تحميل الإحصائيات')
+  }
+})
+
+// ── Handle photo messages ──────────────────────────────────
+bot.on('message:photo', async (ctx) => {
+  const chatId = ctx.chat?.id
+  if (!chatId) return
+
+  const photo = ctx.message.photo
+  if (!photo || photo.length === 0) return
+
+  // Get the highest quality photo
+  const highestRes = photo[photo.length - 1]
+
+  // Store as pending
+  pendingMedia.set(chatId, {
+    chatId,
+    messageId: ctx.message.message_id,
+    fileId: highestRes.file_id,
+    caption: ctx.message.caption || undefined,
+  })
+
+  const keyboard = new InlineKeyboard()
+  ALBUMS.slice(0, 5).forEach((album, i) => {
+    keyboard.text(album, `save_${i}`)
+  })
+  keyboard.row()
+  ALBUMS.slice(5).forEach((album, i) => {
+    keyboard.text(album, `save_${i + 5}`)
+  })
+
+  await ctx.reply(
+    '📁 اختر الألبوم لحفظ الصورة في القناة:',
+    { reply_markup: keyboard }
+  )
+})
+
+// ── Handle callback queries ────────────────────────────────
+bot.on('callback_query:data', async (ctx) => {
+  const data = ctx.callbackQuery.data
+  const chatId = ctx.callbackQuery.message?.chat.id
+
+  if (data === 'action_upload') {
+    await ctx.answerCallbackQuery()
+    await ctx.reply('📷 أرسل الصورة الآن واختر الألبوم\nسيتم حفظها مباشرة في القناة')
+    return
+  }
+
+  if (data === 'action_import') {
+    await ctx.answerCallbackQuery()
+    await ctx.reply(
+      '📸 لاستيراد صور:\n\n' +
+      '1. أعد توجيه الصور من أي قناة/مجموعة إلى البوت\n' +
+      '2. اختر الألبوم لكل صورة\n' +
+      '3. سيتم حفظها في القناة ومزامنتها مع لوحة التحكم'
+    )
+    return
+  }
+
+  if (data === 'action_channel_import') {
+    await ctx.answerCallbackQuery()
+    await ctx.reply(
+      '📥 استيراد من القناة:\n\n' +
+      'سيتم جلب الصور من القناة المعينة ومزامنتها مع لوحة التحكم\n' +
+      'استخدم زر "مزامنة" في لوحة التحكم لاستيراد الصور'
+    )
+    return
+  }
+
+  if (data === 'action_albums') {
+    await ctx.answerCallbackQuery()
+    const keyboard = new InlineKeyboard()
+    ALBUMS.forEach((album, i) => {
+      keyboard.text(album, `album_${i}`).row()
+    })
+    keyboard.row().text('🔙 رجوع', 'action_back')
+    await ctx.reply('📁 الألبومات المتاحة:', { reply_markup: keyboard })
+    return
+  }
+
+  if (data === 'action_stats') {
+    await ctx.answerCallbackQuery()
+    try {
+      const [images, students, halakat] = await Promise.all([
+        sbGet('MediaImage'),
+        sbGet('Student'),
+        sbGet('Halaka'),
+      ])
+      await ctx.reply(
+        `📊 إحصائيات مركز الشفاء\n\n` +
+        `📚 الحلقات: ${halakat.length}\n` +
+        `👥 الطلاب: ${students.length}\n` +
+        `🖼️ الصور: ${images.length}`
+      )
+    } catch {
+      await ctx.reply('❌ فشل في تحميل الإحصائيات')
+    }
+    return
+  }
+
+  if (data === 'action_back') {
+    await ctx.answerCallbackQuery()
+    const keyboard = new InlineKeyboard()
+      .text('📷 رفع صورة', 'action_upload')
+      .text('📸 استيراد صور', 'action_import')
+      .row()
+      .text('📁 عرض الألبومات', 'action_albums')
+      .text('📊 إحصائيات', 'action_stats')
+      .row()
+      .text('📥 استيراد من القناة', 'action_channel_import')
+    await ctx.reply('اختر الإجراء:', { reply_markup: keyboard })
+    return
+  }
+
+  // ── Album selection for save ────────────────────────────
+  if (data.startsWith('save_')) {
+    const albumIndex = parseInt(data.replace('save_', ''))
+    const album = ALBUMS[albumIndex]
+    if (!album) {
+      await ctx.answerCallbackQuery({ text: '❌ ألبوم غير موجود' })
+      return
+    }
+
+    const pending = pendingMedia.get(chatId || 0)
+    if (!pending) {
+      await ctx.answerCallbackQuery({ text: '❌ لا توجد صورة معلقة' })
+      return
+    }
+
+    try {
+      // 1. Forward the photo to the channel
+      const channelMessage = await ctx.api.forwardMessage(
+        CHANNEL_ID,
+        pending.chatId,
+        pending.messageId
+      )
+
+      // 2. Edit the message in the channel with album name
+      if (channelMessage) {
+        try {
+          await ctx.api.editMessageCaption(
+            CHANNEL_ID,
+            channelMessage.message_id,
+            `📁 ${album}\n📅 ${new Date().toLocaleDateString('ar-SA')}`,
+            { parse_mode: 'HTML' }
+          )
+        } catch {
+          // Caption edit might fail if already has one
+        }
+      }
+
+      // 3. Store ONLY metadata in DB (no image data!)
+      const telegramFileId = pending.fileId
+      const filename = `tg-${Date.now()}-${telegramFileId.slice(0, 8)}.jpg`
+
+      try {
+        await sbPost('MediaImage', {
+          album,
+          filename,
+          url: `tg:${telegramFileId}`,
+          source: 'telegram',
+          telegramMessageId: channelMessage?.message_id,
+        })
+      } catch (saveErr: any) {
+        console.error('Save metadata error:', saveErr)
+        // If column 'source' doesn't exist, try without it
+        try {
+          await sbPost('MediaImage', {
+            album,
+            filename,
+            url: `tg:${telegramFileId}`,
+          })
+        } catch (saveErr2) {
+          console.error('Save metadata retry error:', saveErr2)
+        }
+      }
+
+      // Clean up pending
+      pendingMedia.delete(chatId || 0)
+
+      await ctx.answerCallbackQuery({ text: '✅ تم الحفظ في القناة!' })
+      await ctx.reply(
+        `✅ تم حفظ الصورة في القناة بنجاح!\n\n` +
+        `📁 الألبوم: ${album}\n` +
+        `📡 القناة: ${CHANNEL_ID}\n` +
+        `🔄 تمت المزامنة مع لوحة التحكم`
+      )
+    } catch (e) {
+      console.error('Save error:', e)
+      pendingMedia.delete(chatId || 0)
+      await ctx.answerCallbackQuery({ text: '❌ فشل في الحفظ' })
+      await ctx.reply('❌ حدث خطأ أثناء حفظ الصورة: ' + String(e))
+    }
+    return
+  }
+
+  // ── Album info ──────────────────────────────────────────
+  if (data.startsWith('album_')) {
+    const albumIndex = parseInt(data.replace('album_', ''))
+    const album = ALBUMS[albumIndex]
+    if (!album) return
+
+    await ctx.answerCallbackQuery()
+    try {
+      const images = await sbGet('MediaImage', `album=eq.${encodeURIComponent(album)}&order=createdAt.desc&limit=3`)
+      await ctx.reply(
+        `📁 ${album}\n\n` +
+        `🖼️ عدد الصور: ${images.length}\n\n` +
+        (images.length > 0
+          ? `آخر صورة: ${new Date(images[0].createdAt).toLocaleDateString('ar-SA')}`
+          : 'لا توجد صور بعد')
+      )
+    } catch {
+      await ctx.reply('❌ فشل في تحميل بيانات الألبوم')
+    }
+    return
+  }
+})
+
+// ── Image proxy: download from Telegram and stream to client ─
+async function getTelegramFileUrl(fileId: string): Promise<string | null> {
+  try {
+    const file = await bot.api.getFile(fileId)
+    if (!file.file_path) return null
+    return `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`
+  } catch (e) {
+    console.error('Get file error:', e)
+    return null
+  }
+}
+
+// ── HTTP Server ────────────────────────────────────────────
+const server = Bun.serve({
+  port: PORT,
+  async fetch(req) {
+    const url = new URL(req.url)
+
+    // Health check
+    if (url.pathname === '/health') {
+      return Response.json({
+        status: 'ok',
+        bot: 'configured',
+        channel: CHANNEL_ID,
+        authorizedChats: authorizedChats.size,
+        pendingMedia: pendingMedia.size,
+      })
+    }
+
+    // Get bot info
+    if (url.pathname === '/info') {
+      try {
+        const botInfo = await bot.api.getMe()
+        return Response.json({
+          bot: botInfo,
+          channel: CHANNEL_ID,
+          authorizedChats: Array.from(authorizedChats),
+          pendingMedia: pendingMedia.size,
+          storage: 'telegram',
+        })
+      } catch (e) {
+        return Response.json({ error: String(e) }, { status: 500 })
+      }
+    }
+
+    // Image proxy - get image from Telegram and return it
+    if (url.pathname === '/image') {
+      const fileId = url.searchParams.get('file_id')
+      if (!fileId) {
+        return Response.json({ error: 'file_id required' }, { status: 400 })
+      }
+
+      try {
+        const telegramUrl = await getTelegramFileUrl(fileId)
+        if (!telegramUrl) {
+          return Response.json({ error: 'File not found' }, { status: 404 })
+        }
+
+        // Fetch from Telegram
+        const imgResponse = await fetch(telegramUrl)
+        if (!imgResponse.ok) {
+          return Response.json({ error: 'Failed to fetch from Telegram' }, { status: 502 })
+        }
+
+        const contentType = imgResponse.headers.get('content-type') || 'image/jpeg'
+        const buffer = await imgResponse.arrayBuffer()
+
+        return new Response(buffer, {
+          headers: {
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=86400',
+            'Access-Control-Allow-Origin': '*',
+          },
+        })
+      } catch (e) {
+        console.error('Image proxy error:', e)
+        return Response.json({ error: String(e) }, { status: 500 })
+      }
+    }
+
+    // Send image to channel (from web upload)
+    if (url.pathname === '/send-to-channel' && req.method === 'POST') {
+      try {
+        const formData = await req.formData()
+        const file = formData.get('file') as File
+        const album = formData.get('album') as string
+        const caption = formData.get('caption') as string || ''
+
+        if (!file || !album) {
+          return Response.json({ error: 'file and album required' }, { status: 400 })
+        }
+
+        // Send photo to channel
+        const buffer = Buffer.from(await file.arrayBuffer())
+        const channelMessage = await bot.api.sendPhoto(CHANNEL_ID, new InputFile(buffer, file.name), {
+          caption: `📁 ${album}\n📅 ${new Date().toLocaleDateString('ar-SA')}${caption ? '\n' + caption : ''}`,
+        })
+
+        // Get the file_id from the sent message
+        const sentPhoto = channelMessage.photo
+        const highestRes = sentPhoto ? sentPhoto[sentPhoto.length - 1] : null
+
+        if (!highestRes) {
+          return Response.json({ error: 'Failed to get file_id' }, { status: 500 })
+        }
+
+        // Store metadata only in DB
+        const telegramFileId = highestRes.file_id
+        const filename = `tg-${Date.now()}-${telegramFileId.slice(0, 8)}.jpg`
+
+        try {
+          await sbPost('MediaImage', {
+            album,
+            filename,
+            url: `tg:${telegramFileId}`,
+            source: 'web-upload',
+            telegramMessageId: channelMessage.message_id,
+          })
+        } catch (saveErr: any) {
+          console.error('Save metadata error:', saveErr)
+          try {
+            await sbPost('MediaImage', {
+              album,
+              filename,
+              url: `tg:${telegramFileId}`,
+            })
+          } catch (saveErr2) {
+            console.error('Save metadata retry error:', saveErr2)
+          }
+        }
+
+        return Response.json({
+          success: true,
+          fileId: telegramFileId,
+          messageId: channelMessage.message_id,
+          filename,
+        })
+      } catch (e) {
+        console.error('Send to channel error:', e)
+        return Response.json({ error: String(e) }, { status: 500 })
+      }
+    }
+
+    // Get imports (images from Telegram)
+    if (url.pathname === '/imports') {
+      try {
+        const images = await sbGet('MediaImage', 'order=createdAt.desc&limit=100')
+        // Filter telegram images (url starts with tg:)
+        const tgImages = images.filter((i: any) => i.url && i.url.startsWith('tg:'))
+        return Response.json({ images: tgImages })
+      } catch (e) {
+        return Response.json({ error: String(e) }, { status: 500 })
+      }
+    }
+
+    // Sync: import images from channel
+    if (url.pathname === '/sync' && req.method === 'POST') {
+      try {
+        // Return current count
+        const images = await sbGet('MediaImage', 'order=createdAt.desc&limit=100')
+        const tgImages = images.filter((i: any) => i.url && i.url.startsWith('tg:'))
+        return Response.json({ synced: tgImages.length, message: `تمت مزامنة ${tgImages.length} صورة` })
+      } catch (e) {
+        return Response.json({ error: String(e) }, { status: 500 })
+      }
+    }
+
+    // Register a chat ID
+    if (url.pathname === '/register-chat' && req.method === 'POST') {
+      try {
+        const body = await req.json()
+        const { chatId, adminId } = body
+
+        if (!chatId || !adminId) {
+          return Response.json({ error: 'chatId and adminId required' }, { status: 400 })
+        }
+
+        authorizedChats.add(parseInt(chatId))
+        await loadAuthorizedChats()
+
+        return Response.json({ success: true })
+      } catch (e) {
+        return Response.json({ error: String(e) }, { status: 500 })
+      }
+    }
+
+    // Delete image from DB and optionally from channel
+    if (url.pathname === '/delete-image' && req.method === 'DELETE') {
+      try {
+        const fileId = url.searchParams.get('file_id')
+        if (!fileId) {
+          return Response.json({ error: 'file_id required' }, { status: 400 })
+        }
+
+        // Delete from DB
+        const images = await sbGet('MediaImage', `url=eq.tg:${encodeURIComponent(fileId)}`)
+        if (images.length > 0) {
+          await sbDelete('MediaImage', `id=eq.${images[0].id}`)
+        }
+
+        return Response.json({ success: true })
+      } catch (e) {
+        return Response.json({ error: String(e) }, { status: 500 })
+      }
+    }
+
+    // Webhook endpoint
+    if (url.pathname === '/webhook' && req.method === 'POST') {
+      try {
+        const update = await req.json()
+        bot.handleUpdate(update).catch(console.error)
+        return new Response('OK', { status: 200 })
+      } catch {
+        return new Response('Bad Request', { status: 400 })
+      }
+    }
+
+    return new Response('AlShifa Telegram Bot Service', { status: 404 })
+  },
+})
+
+// ── Start (called from Bun.serve) ─────────────────────────
+async function startBotPolling() {
+  await loadAuthorizedChats()
+
+  // Initialize bot (grammy v1.42+)
+  await bot.init().catch((e: any) => console.error("Bot init:", e))
+
+  // Use manual polling loop instead of bot.start()
+  async function poll() {
+    try {
+      while (true) {
+        try {
+          const updates = await bot.api.getUpdates({ timeout: 30, allowed_updates: ['message', 'callback_query'] })
+          for (const update of updates) {
+            bot.handleUpdate(update).catch(e => console.error('Update handler error:', e))
+          }
+        } catch (e) {
+          console.error('Poll error:', e)
+          await new Promise(r => setTimeout(r, 3000))
+        }
+      }
+    } catch (e) {
+      console.error('Polling crashed:', e)
+      await new Promise(r => setTimeout(r, 5000))
+      poll()
+    }
+  }
+
+  // Get bot info
+  try {
+    const botInfo = await bot.api.getMe()
+    console.log(`🤖 Bot @${botInfo.username} started (polling mode)`)
+  } catch (e) {
+    console.error('Failed to get bot info:', e)
+  }
+  console.log(`📡 Channel: ${CHANNEL_ID}`)
+  console.log(`👤 Admin: ${ADMIN_ACCOUNT_ID}`)
+  console.log(`🌐 HTTP server on port ${PORT}`)
+
+  // Start polling in background (don't block HTTP server)
+  // Initialize bot before polling
+  await bot.init().catch(e => console.error("Bot init error:", e))
+  poll().catch(e => console.error('Poll failed:', e))
+}
+
+// Start everything
+startBotPolling().catch(console.error)

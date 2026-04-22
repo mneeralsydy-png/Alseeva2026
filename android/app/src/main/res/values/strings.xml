@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">مركز الشفاء</string>
+    <string name="title_activity_main">مركز الشفاء</string>
+    <string name="package_name">com.alshifa.quran.center</string>
+    <string name="custom_url_scheme">com.alshifa.quran.center</string>
+</resources>
