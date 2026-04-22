@@ -284,3 +284,20 @@ input:focus, textarea:focus {
   outline: none;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ── Update Banner Animation ──────────────────────────────── */
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-down {
+  -webkit-animation: slideDown 0.3s ease-out forwards;
+  animation: slideDown 0.3s ease-out forwards;
+}

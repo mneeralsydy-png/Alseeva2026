@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cairo, Amiri } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import UpdateChecker from "@/components/UpdateChecker";
 
 const cairo = Cairo({
   variable: "--font-cairo",
@@ -65,6 +66,7 @@ export default function RootLayout({
         style={{ backgroundColor: '#f8f9fa' }}
       >
         {children}
+        <UpdateChecker />
         <Toaster />
       </body>
     </html>
