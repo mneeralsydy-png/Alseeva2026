@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow all cleartext (HTTP) traffic - needed for Capacitor WebView -->
+    <base-config cleartextTrafficPermitted="true">
+        <!-- Trust all certificates (for development and CDN compatibility) -->
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <!-- Explicitly allow Supabase connections -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">supabase.co</domain>
+        <domain includeSubdomains="true">supabase.in</domain>
+        <domain includeSubdomains="true">telegram.org</domain>
+    </domain-config>
+</network-security-config>

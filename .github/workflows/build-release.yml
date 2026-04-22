@@ -38,7 +38,11 @@ jobs:
         run: |
           mkdir -p /tmp/api-routes-backup
           mv src/app/api /tmp/api-routes-backup/ || true
-          BUILD_TYPE=apk NEXT_PUBLIC_API_BASE=https://abualzahracom.online bun run build || { mv /tmp/api-routes-backup/api src/app/api 2>/dev/null; exit 1; }
+          BUILD_TYPE=apk \
+          NEXT_PUBLIC_API_BASE=https://abualzahracom.online \
+          NEXT_PUBLIC_SUPABASE_URL=https://ntshduvxdehefxmchusw.supabase.co \
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_nnhQkb5fX6SPZ7Nx8L7rcg_r-BDxd-M \
+          bun run build || { mv /tmp/api-routes-backup/api src/app/api 2>/dev/null; exit 1; }
           mv /tmp/api-routes-backup/api src/app/api 2>/dev/null || true
         env:
           NEXT_TELEMETRY_DISABLED: 1
@@ -87,8 +91,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1-${{ steps.version.outputs.VERSION }}
-          name: Release v1.1 (${{ steps.version.outputs.VERSION }})
+          tag_name: v1.2-${{ steps.version.outputs.VERSION }}
+          name: Release v1.2 (${{ steps.version.outputs.VERSION }})
           files: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab

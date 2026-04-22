@@ -1,4 +1,4 @@
-package com.alshifa.quran.center;
+package com.alshifa.hifz.app;
 
 import com.getcapacitor.BridgeActivity;
 

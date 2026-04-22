@@ -5,6 +5,18 @@
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ntshduvxdehefxmchusw.supabase.co'
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_nnhQkb5fX6SPZ7Nx8L7rcg_r-BDxd-M'
 
+// Detect Capacitor native environment
+function isNativeApp(): boolean {
+  try {
+    if (typeof window === 'undefined') return false
+    const proto = window.location?.protocol?.toLowerCase()
+    if (proto === 'capacitor:' || proto === 'ionic:') return true
+    const cap = (window as any).Capacitor
+    if (cap && (cap.isNativePlatform?.() || cap.platform === 'android' || cap.platform === 'ios')) return true
+  } catch { /* ignore */ }
+  return false
+}
+
 function headers(extra?: Record<string, string>) {
   return {
     'apikey': SUPABASE_KEY,
@@ -16,13 +28,40 @@ function headers(extra?: Record<string, string>) {
 }
 
 // Direct GET from Supabase - works from client-side without server
+// Enhanced with timeout and retry logic for Capacitor/Android WebView
 export async function sbDirectGet<T = any>(table: string, query?: string): Promise<T[]> {
   const url = `${SUPABASE_URL}/rest/v1/${table}${query ? '?' + query : ''}`
-  const res = await fetch(url, { headers: headers() })
-  if (!res.ok) {
-    throw new Error(`Supabase direct GET ${table} error ${res.status}`)
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000) // 15s timeout
+
+  try {
+    console.log(`[Supabase] GET ${table}${query ? ' ?' + query : ''} (native: ${isNativeApp()})`)
+    const res = await fetch(url, {
+      headers: headers(),
+      signal: controller.signal,
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => '')
+      console.error(`[Supabase] Error ${res.status} for ${table}: ${errorText}`)
+      throw new Error(`Supabase direct GET ${table} error ${res.status}: ${errorText}`)
+    }
+
+    const data = await res.json()
+    console.log(`[Supabase] OK ${table}: ${Array.isArray(data) ? data.length + ' rows' : typeof data}`)
+    return data
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.error(`[Supabase] Timeout fetching ${table} (15s)`)
+      throw new Error(`Timeout fetching ${table}`)
+    }
+    // Log network errors for debugging in APK
+    console.error(`[Supabase] Network error for ${table}:`, error?.message || error)
+    throw error
+  } finally {
+    clearTimeout(timeout)
   }
-  return res.json()
 }
 
 // Direct COUNT from Supabase
@@ -51,6 +90,10 @@ const BOT_TOKEN = process.env.NEXT_PUBLIC_BOT_TOKEN || ''
 
 // Get Telegram file direct URL (2-step process: getFile → build URL)
 export async function getTelegramFileUrl(fileId: string): Promise<string | null> {
+  if (!BOT_TOKEN) {
+    console.warn('[Telegram] BOT_TOKEN not configured')
+    return null
+  }
   try {
     // Step 1: Get file path from Telegram
     const infoRes = await fetch(

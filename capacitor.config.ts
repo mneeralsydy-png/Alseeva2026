@@ -1,9 +1,19 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.alshifa.quran.center',
+  appId: 'com.alshifa.hifz.app',
   appName: 'مركز الشفاء',
   webDir: 'out',
+  server: {
+    // Allow navigation to external URLs (needed for media, OAuth, etc.)
+    allowNavigation: [
+      'https://ntshduvxdehefxmchusw.supabase.co',
+      'https://api.telegram.org',
+      'https://abualzahracom.online',
+    ],
+    // Use Android's cleartext (HTTP) support for the local server
+    androidScheme: 'https',
+  },
   plugins: {
     Keyboard: {
       resize: 'body',

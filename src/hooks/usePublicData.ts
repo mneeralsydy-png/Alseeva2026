@@ -363,7 +363,8 @@ export function usePublicData() {
         setIsOffline(false)
         setLastUpdate(new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }))
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[PublicData] Fetch failed:', error?.message || error)
       if (mountedRef.current) {
         const cached = loadCachedData()
         if (cached) {
