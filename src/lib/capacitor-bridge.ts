@@ -1,11 +1,12 @@
 // Capacitor native bridge - provides native device functionality
 // Only works in Capacitor (Android/iOS), gracefully falls back in browser
 // All Capacitor imports are DYNAMIC to prevent crashes on web browsers
+// NO storage/media permissions needed — uses only safe APIs
 
 // ── Platform detection (safe, no imports needed) ───────────
 export function isNativeApp(): boolean {
   try {
-    return typeof window !== 'undefined' && 
+    return typeof window !== 'undefined' &&
       !!(window as any).Capacitor?.isNativePlatform?.()
   } catch {
     return false
@@ -57,49 +58,22 @@ export async function fetchMediaBlob(imageUrl: string): Promise<Blob> {
 }
 
 /**
- * Save a file to the device's Downloads/Pictures directory
+ * Save a file — uses system share sheet (Photo Picker / Save To)
+ * No storage permissions needed — lets the user choose where to save
  */
 export async function saveFileToGallery(
   blob: Blob,
   filename: string
 ): Promise<{ success: boolean; path?: string; error?: string }> {
-  if (!isNativeApp()) {
-    return saveFileBrowser(blob, filename)
+  if (isNativeApp()) {
+    return saveViaShare(blob, filename)
   }
-
-  try {
-    const { Filesystem, Directory } = await import('@capacitor/filesystem')
-    const base64 = await blobToBase64(blob)
-
-    const result = await Filesystem.writeFile({
-      path: `Download/alshifa/${filename}`,
-      data: base64,
-      directory: Directory.ExternalStorage,
-      recursive: true,
-    })
-
-    return { success: true, path: result.uri }
-  } catch (error: any) {
-    console.error('Capacitor save error:', error)
-
-    try {
-      const { Filesystem, Directory } = await import('@capacitor/filesystem')
-      const base64 = await blobToBase64(blob)
-      const result = await Filesystem.writeFile({
-        path: `alshifa/${filename}`,
-        data: base64,
-        directory: Directory.Documents,
-        recursive: true,
-      })
-      return { success: true, path: result.uri }
-    } catch {
-      return saveFileBrowser(blob, filename)
-    }
-  }
+  return saveFileBrowser(blob, filename)
 }
 
 /**
  * Share a file using the native share sheet
+ * No storage permissions needed — uses only Cache directory + Share API
  */
 export async function shareFile(
   blob: Blob,
@@ -107,44 +81,14 @@ export async function shareFile(
   title?: string,
   _text?: string
 ): Promise<{ success: boolean; error?: string }> {
-  if (!isNativeApp()) {
-    return shareFileBrowser(blob, filename, title, _text)
+  if (isNativeApp()) {
+    return saveViaShare(blob, filename, title)
   }
-
-  try {
-    const { Filesystem, Directory } = await import('@capacitor/filesystem')
-    const { Share } = await import('@capacitor/share')
-    const base64 = await blobToBase64(blob)
-    const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_')
-
-    const result = await Filesystem.writeFile({
-      path: `share/${safeFilename}`,
-      data: base64,
-      directory: Directory.Cache,
-      recursive: true,
-    })
-
-    await Share.share({
-      title: title || 'مركز الشفاء',
-      url: result.uri,
-    })
-
-    try {
-      await Filesystem.deleteFile({
-        path: `share/${safeFilename}`,
-        directory: Directory.Cache,
-      })
-    } catch { /* ignore cleanup error */ }
-
-    return { success: true }
-  } catch (error: any) {
-    if (!error?.message) return { success: false, error: 'cancelled' }
-    return shareFileBrowser(blob, filename, title, _text)
-  }
+  return shareFileBrowser(blob, filename, title, _text)
 }
 
 /**
- * Open a file with an external app
+ * Open a file with an external app (uses share sheet)
  */
 export async function openWith(
   blob: Blob,
@@ -180,6 +124,51 @@ export async function shareText(
   } catch (error: any) {
     if (!error?.message) return { success: false, error: 'cancelled' }
     return { success: false, error: String(error) }
+  }
+}
+
+// ─── Native: Save via Share Sheet (no permissions needed) ──
+// Uses Capacitor Cache directory + Share plugin
+// This is equivalent to "Photo Picker / Save to" — user chooses destination
+
+async function saveViaShare(
+  blob: Blob,
+  filename: string,
+  title?: string
+): Promise<{ success: boolean; path?: string; error?: string }> {
+  try {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem')
+    const { Share } = await import('@capacitor/share')
+    const base64 = await blobToBase64(blob)
+    const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_')
+
+    // Write to app Cache (no permission needed)
+    const result = await Filesystem.writeFile({
+      path: `share/${safeFilename}`,
+      data: base64,
+      directory: Directory.Cache,
+      recursive: true,
+    })
+
+    // Share — user picks destination (Photos, Files, WhatsApp, etc.)
+    await Share.share({
+      title: title || 'مركز الشفاء',
+      url: result.uri,
+    })
+
+    // Cleanup cache file
+    try {
+      await Filesystem.deleteFile({
+        path: `share/${safeFilename}`,
+        directory: Directory.Cache,
+      })
+    } catch { /* ignore */ }
+
+    return { success: true }
+  } catch (error: any) {
+    if (!error?.message) return { success: false, error: 'cancelled' }
+    // Fallback to browser share
+    return shareFileBrowser(blob, filename, title)
   }
 }
 
